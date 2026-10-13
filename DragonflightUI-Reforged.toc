@@ -10,6 +10,8 @@
 core\error.lua
 core\core.lua
 core\theme.lua
+core\theme_ui.lua
+core\theme_welcome.lua
 core\tools.lua
 core\statusbar.lua
 core\compat.lua
@@ -57,3 +59,4 @@ modules\gui\info.lua
 modules\gui\prof.lua
 modules\gui\mods.lua
 modules\gui\shag.lua
+modules\gui\themes.lua

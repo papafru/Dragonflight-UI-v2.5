@@ -1,0 +1,21 @@
+name: fruUI Theme Selection
+on:
+  pull_request:
+  push:
+    branches:
+      - feature/theme-selection-m2
+jobs:
+  lua-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua 5.1
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+      - name: Syntax validation
+        run: |
+          lua5.1 tests/syntax_check.lua
+          luac5.1 -p core/core.lua core/theme.lua core/theme_ui.lua core/theme_welcome.lua core/first.lua modules/gui/base.lua modules/gui/elem.lua modules/gui/themes.lua
+      - name: Milestone 1 regression
+        run: lua5.1 tests/theme_foundation.lua
+      - name: Milestone 2 GUI regressions
+        run: lua5.1 tests/theme_selection.lua

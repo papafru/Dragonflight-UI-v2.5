@@ -141,18 +141,37 @@ function Theme:WriteOverride(module, key, value)
     return true
 end
 
+function Theme:AddListener(listener)
+    if type(listener) ~= "function" then return end
+    self.listeners = self.listeners or {}
+    table.insert(self.listeners, listener)
+end
+
 function Theme:Refresh()
     -- Only dispatch callbacks for our own appearance whitelist. A broad
     -- TriggerAllCallbacks() would re-run unrelated gameplay/config handlers.
     local selected = self:GetSelected()
-    if not selected then return end
-    for module, properties in pairs(self.presets[selected]) do
+    for module, properties in pairs(self.presets.fantasy) do
         for key in pairs(properties) do
             local raw = DFRL.tempDB[module] and DFRL.tempDB[module][key]
             DFRL:TriggerCallback(module .. "_" .. key .. "_changed",
                 self:Resolve(module, key, raw))
         end
     end
+    if DFRL.gui and DFRL.gui.Base and DFRL.gui.Base.SyncControls then
+        DFRL.gui.Base.SyncControls()
+    end
+    if self.listeners then
+        for i = 1, table.getn(self.listeners) do self.listeners[i](selected) end
+    end
+end
+
+function Theme:UseExistingAppearance()
+    if not self.state then return false end
+    self.state.selected = nil
+    self.state.needsChoice = false
+    self:Refresh()
+    return true
 end
 
 function Theme:Select(id)

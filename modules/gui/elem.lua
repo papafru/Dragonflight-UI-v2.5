@@ -720,7 +720,8 @@ DFRL:NewMod("Gui-elem", 3, function()
         end
     end
 
-    function Setup:UpdateHandler()
+    function Setup:UpdateHandler(skipCallbacks)
+        DFRL.suppressGuiWrites = true
         self.configCache = {}
 
         local all = {}
@@ -819,7 +820,8 @@ DFRL:NewMod("Gui-elem", 3, function()
             end
         end
 
-        DFRL:TriggerAllCallbacks()
+        DFRL.suppressGuiWrites = false
+        if not skipCallbacks then DFRL:TriggerAllCallbacks() end
     end
 
     function Setup:GetCache(moduleName, key)
@@ -836,6 +838,10 @@ DFRL:NewMod("Gui-elem", 3, function()
 
     Base.UpdateHandler = function()
         Setup:UpdateHandler()
+    end
+
+    Base.SyncControls = function()
+        Setup:UpdateHandler(true)
     end
 
     --=================
