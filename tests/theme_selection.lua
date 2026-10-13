@@ -19,10 +19,11 @@ local function create(typeName, name, parent)
     if name then _G[name]=f end
     return f
 end
-function frame_methods:CreateTexture(_, layer, subLevel)
-    local tex=create("Texture",nil,self)
-    tex.drawLayer=layer
-    tex.subLevel=subLevel or 0
+function frame_methods:CreateTexture(_, layer, legacyTemplate)
+    -- WoW 1.12 uses the third argument for a template, not sublevels.
+    eq(legacyTemplate, nil, "1.12 CreateTexture must not use sublevels")
+    local tex = create("Texture", nil, self)
+    tex.drawLayer = layer
     return tex
 end
 function frame_methods:CreateFontString() return create("FontString",nil,self) end
@@ -115,29 +116,38 @@ for _,child in ipairs(welcome.children) do
     if child.typeName=="Button" and child.text=="Continue" then go=child end
 end
 eq(#chosenCards,2,"exactly two visual cards")
--- Both PLAYER and TARGET must be fully constructed, at explicit draw depths.
--- The old mock only asserted card creation and missed missing fill layers.
+-- Each card must contain two independent frame backdrops, each with
+-- a health and resource fill in front and no unsupported texture sublevel.
 for _,card in ipairs(chosenCards) do
-    local visibleFills = {}
-    for _,obj in ipairs(card.children) do
-        if obj.typeName == "Texture" and obj.point then
-            local x, y = obj.point[4], obj.point[5]
-            for _,startX in ipairs({14, 176}) do
-                if x == startX and y == -75 and obj.width == 146 then
-                    eq(obj.subLevel, 0, "unit preview background depth")
-                elseif x == startX + 7 and y == -91 and obj.height == 9 then
-                    eq(obj.drawLayer, "ARTWORK", "health preview artwork layer")
-                    eq(obj.subLevel, 2, "health preview foreground depth")
-                    visibleFills[startX] = (visibleFills[startX] or 0) + 1
-                elseif x == startX + 7 and y == -103 and obj.height == 5 then
-                    eq(obj.subLevel, 3, "resource preview foreground depth")
-                    visibleFills[startX] = (visibleFills[startX] or 0) + 1
-                end
-            end
+    local units = {}
+    for _,child in ipairs(card.children) do
+        if child.typeName == "Frame" and child.width == 146 and child.height == 39 then
+            table.insert(units, child)
         end
     end
-    eq(visibleFills[14], 2, "PLAYER has health and resource fills")
-    eq(visibleFills[176], 2, "TARGET has health and resource fills")
+    eq(#units, 2, "both PLAYER and TARGET have independent frames")
+    for index,unit in ipairs(units) do
+        eq(unit.parent, card, "preview unit parent is theme card")
+        eq(unit.mouse, false, "preview is mouse-transparent")
+        eq(unit.point[4], index == 1 and 14 or 176, "unit preview horizontal anchor")
+        eq(unit.point[5], -75, "unit preview vertical anchor")
+        eq(unit.backdrop[1].bgFile, "Interface\\Buttons\\WHITE8X8", "unit backdrop texture")
+        local fills = {}
+        for _,region in ipairs(unit.children) do
+            if region.typeName == "Texture" and region.drawLayer == "ARTWORK" then
+                table.insert(fills, region)
+            end
+        end
+        eq(#fills, 2, "unit has exactly two visible fills")
+        eq(fills[1].width, 132, "health bar width")
+        eq(fills[1].height, 9, "health bar height")
+        eq(fills[2].width, 121, "resource bar width")
+        eq(fills[2].height, 5, "resource bar height")
+        eq(fills[1].point[4], 7, "health bar local X")
+        eq(fills[1].point[5], -16, "health bar local Y")
+        eq(fills[2].point[4], 7, "resource bar local X")
+        eq(fills[2].point[5], -28, "resource bar local Y")
+    end
 end
 eq(go.enabled,false,"continue starts disabled")
 go:Click()

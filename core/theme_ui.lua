@@ -21,10 +21,11 @@ local function Font(parent, text, size, x, y, color)
     return f
 end
 
-local function Bar(parent, width, height, x, y, color, subLevel)
-    -- Explicit layer ordering avoids legacy-client draw-order ambiguity:
-    -- unit backgrounds 0, health 2, resource 3, decorative trim 4.
-    local texture = parent:CreateTexture(nil, "ARTWORK", subLevel or 0)
+local function Bar(parent, width, height, x, y, color, layer)
+    -- 1.12 has named drawing layers but no texture sublevel parameter.
+    -- Keep each preview's background in its own child Frame and its fills
+    -- in ARTWORK, so neither unit can cover the other's contents.
+    local texture = parent:CreateTexture(nil, layer or "ARTWORK")
     texture:SetTexture(WHITE)
     texture:SetWidth(width)
     texture:SetHeight(height)
@@ -60,13 +61,22 @@ function ui.CreateCard(parent, id, width, height, onChoose)
     local unitWidth = math.floor((width - 44) / 2)
     for i = 0, 1 do
         local unitX = 14 + i * (unitWidth + 16)
-        Bar(card, unitWidth, 39, unitX, mockTop, {.035, .04, .045, 1})
-        Bar(card, unitWidth - 14, 9, unitX + 7, mockTop - 16, p.accent, 2)
-        Bar(card, unitWidth - 25, 5, unitX + 7, mockTop - 28, {.21, .41, .72}, 3)
-        Font(card, i == 0 and "PLAYER" or "TARGET", 9, unitX + 7, mockTop - 4, {1, 1, 1})
+        -- Each unit has its own frame and opaque BACKGROUND backdrop.
+        -- This avoids unstable draw ordering when all preview textures
+        -- share the card's ARTWORK layer on the legacy client.
+        local unit = CreateFrame("Frame", nil, card)
+        unit:SetWidth(unitWidth)
+        unit:SetHeight(39)
+        unit:SetPoint("TOPLEFT", card, "TOPLEFT", unitX, mockTop)
+        unit:EnableMouse(false) -- clicks must still reach the theme card
+        unit:SetBackdrop({bgFile = WHITE})
+        unit:SetBackdropColor(.035, .04, .045, 1)
+        Bar(unit, unitWidth - 14, 9, 7, -16, p.accent, "ARTWORK")
+        Bar(unit, unitWidth - 25, 5, 7, -28, {.21, .41, .72}, "ARTWORK")
+        Font(unit, i == 0 and "PLAYER" or "TARGET", 9, 7, -4, {1, 1, 1})
         if id == "fantasy" then
-            Bar(card, 4, 39, unitX, mockTop, p.accent, 4)
-            Bar(card, 4, 39, unitX + unitWidth - 4, mockTop, p.accent, 4)
+            Bar(unit, 4, 39, 0, 0, p.accent, "OVERLAY")
+            Bar(unit, 4, 39, unitWidth - 4, 0, p.accent, "OVERLAY")
         end
     end
 
