@@ -19,7 +19,12 @@ local function create(typeName, name, parent)
     if name then _G[name]=f end
     return f
 end
-function frame_methods:CreateTexture() return create("Texture",nil,self) end
+function frame_methods:CreateTexture(_, layer, subLevel)
+    local tex=create("Texture",nil,self)
+    tex.drawLayer=layer
+    tex.subLevel=subLevel or 0
+    return tex
+end
 function frame_methods:CreateFontString() return create("FontString",nil,self) end
 function frame_methods:SetScript(k,v) self.scripts[k]=v end
 function frame_methods:GetScript(k) return self.scripts[k] end
@@ -110,6 +115,30 @@ for _,child in ipairs(welcome.children) do
     if child.typeName=="Button" and child.text=="Continue" then go=child end
 end
 eq(#chosenCards,2,"exactly two visual cards")
+-- Both PLAYER and TARGET must be fully constructed, at explicit draw depths.
+-- The old mock only asserted card creation and missed missing fill layers.
+for _,card in ipairs(chosenCards) do
+    local visibleFills = {}
+    for _,obj in ipairs(card.children) do
+        if obj.typeName == "Texture" and obj.point then
+            local x, y = obj.point[4], obj.point[5]
+            for _,startX in ipairs({14, 176}) do
+                if x == startX and y == -75 and obj.width == 146 then
+                    eq(obj.subLevel, 0, "unit preview background depth")
+                elseif x == startX + 7 and y == -91 and obj.height == 9 then
+                    eq(obj.drawLayer, "ARTWORK", "health preview artwork layer")
+                    eq(obj.subLevel, 2, "health preview foreground depth")
+                    visibleFills[startX] = (visibleFills[startX] or 0) + 1
+                elseif x == startX + 7 and y == -103 and obj.height == 5 then
+                    eq(obj.subLevel, 3, "resource preview foreground depth")
+                    visibleFills[startX] = (visibleFills[startX] or 0) + 1
+                end
+            end
+        end
+    end
+    eq(visibleFills[14], 2, "PLAYER has health and resource fills")
+    eq(visibleFills[176], 2, "TARGET has health and resource fills")
+end
 eq(go.enabled,false,"continue starts disabled")
 go:Click()
 eq(DFRL.theme:GetSelected(),nil,"disabled Continue does not select")

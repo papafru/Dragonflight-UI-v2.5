@@ -21,8 +21,10 @@ local function Font(parent, text, size, x, y, color)
     return f
 end
 
-local function Bar(parent, width, height, x, y, color)
-    local texture = parent:CreateTexture(nil, "ARTWORK")
+local function Bar(parent, width, height, x, y, color, subLevel)
+    -- Explicit layer ordering avoids legacy-client draw-order ambiguity:
+    -- unit backgrounds 0, health 2, resource 3, decorative trim 4.
+    local texture = parent:CreateTexture(nil, "ARTWORK", subLevel or 0)
     texture:SetTexture(WHITE)
     texture:SetWidth(width)
     texture:SetHeight(height)
@@ -59,12 +61,12 @@ function ui.CreateCard(parent, id, width, height, onChoose)
     for i = 0, 1 do
         local unitX = 14 + i * (unitWidth + 16)
         Bar(card, unitWidth, 39, unitX, mockTop, {.035, .04, .045, 1})
-        Bar(card, unitWidth - 14, 9, unitX + 7, mockTop - 16, p.accent)
-        Bar(card, unitWidth - 25, 5, unitX + 7, mockTop - 28, {.21, .41, .72})
+        Bar(card, unitWidth - 14, 9, unitX + 7, mockTop - 16, p.accent, 2)
+        Bar(card, unitWidth - 25, 5, unitX + 7, mockTop - 28, {.21, .41, .72}, 3)
         Font(card, i == 0 and "PLAYER" or "TARGET", 9, unitX + 7, mockTop - 4, {1, 1, 1})
         if id == "fantasy" then
-            Bar(card, 4, 39, unitX, mockTop, p.accent)
-            Bar(card, 4, 39, unitX + unitWidth - 4, mockTop, p.accent)
+            Bar(card, 4, 39, unitX, mockTop, p.accent, 4)
+            Bar(card, 4, 39, unitX + unitWidth - 4, mockTop, p.accent, 4)
         end
     end
 
