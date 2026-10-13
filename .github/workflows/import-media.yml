@@ -1,0 +1,39 @@
+name: Import verified UI media assets
+on:
+  push:
+    paths:
+      - ".github/workflows/import-media.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-media:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out fruUI
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Copy byte-verified original media and commit it
+        run: |
+          set -euo pipefail
+          test ! -e media
+          curl --fail --location --silent --show-error --retry 3 \
+            https://github.com/Hippoom/DragonflightUI-Reforged/archive/refs/heads/dev.zip \
+            -o /tmp/source.zip
+          unzip -q /tmp/source.zip -d /tmp/fru-ui-source
+          cp -a /tmp/fru-ui-source/DragonflightUI-Reforged-dev/media ./media
+          git add -- media
+          actual=$(git ls-tree "$(git write-tree)" media | awk '{print $3}')
+          expected="c9eaa794d67cf903855173599043a303c5f58d7d"
+          if [ "$actual" != "$expected" ]; then
+            echo "Media files differ from the user's original archive. Aborting."
+            exit 1
+          fi
+          git rm -- .github/workflows/import-media.yml
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Add verified media folder from original UI archive"
+          git push origin HEAD:main
