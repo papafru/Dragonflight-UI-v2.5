@@ -279,4 +279,9 @@ end)
 
     -- expose
     DFRL.menuframe = Setup.menuframe
+    -- Initialize the independent Edit Mode extension after menu creation.
+    -- Unlike NewMod, this does not add a checkbox to the fixed Modules grid.
+    if DFRL.InitEditModeMenu then
+        DFRL.InitEditModeMenu()
+    end
 end)

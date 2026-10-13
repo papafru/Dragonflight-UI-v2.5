@@ -2,13 +2,16 @@
 -- Keep the menu integration separate from its native menu implementation.
 -- Frame movement/persistence remains in modules/frames/frames.lua.
 
-DFRL:NewDefaults("EditModeMenu", {enabled = {true}})
-DFRL:NewMod("EditModeMenu", 3, function()
-    local Edit = DFRL.EditMode
+-- Called by Menu once its frames/buttons exist. This must NOT register an
+-- additional NewMod: the original Modules settings grid only fits 24 toggles
+-- and an extra entry leaves its last (Xprep) checkbox orphaned on UIParent.
+DFRL.InitEditModeMenu = function()
+    if DFRL.editModeMenuInitialized then return end
+    local Edit = DFRL.EditMode or {active = false, ready = false}
+    DFRL.EditMode = Edit
     local menu = DFRL.menuframe
     local menuButtons = DFRL.menuButtons
     if not menu or not menuButtons or not menuButtons.keybindings then return end
-    if not Edit then return end
 
     local keyButton = menuButtons.keybindings
     local editButton = DFRL.tools.CreateButton(menu, "Edit Mode", 120, 30)
@@ -132,4 +135,5 @@ DFRL:NewMod("EditModeMenu", 3, function()
         end
         return originalToggle()
     end
-end)
+    DFRL.editModeMenuInitialized = true
+end
