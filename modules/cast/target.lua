@@ -499,7 +499,7 @@ DFRL:NewMod("TargetCastbar", 1, function()
             Setup.frame:SetMovable(true)
             Setup.frame:EnableMouse(true)
             Setup.frame:SetScript("OnDragStart", function()
-                if IsControlKeyDown() and IsShiftKeyDown() and IsAltKeyDown() then
+                if DFRL.EditMode and DFRL.EditMode.active then
                     Setup.frame:StartMoving()
                 end
             end)

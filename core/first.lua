@@ -68,7 +68,7 @@ function Setup:WelcomePage()
     local title = DFRL.tools.CreateFont(self.welcomeFrame, 18, "|cFFFFFFFFWelcome to|r |cFFFFD700Dragonflight|r: |cFFFFFFFFReforged|r |cFFFFD7002.0")
     title:SetPoint("TOP", 0, -25)
 
-    local text = DFRL.tools.CreateFont(self.welcomeFrame, 15, "Tip:\nHold CTRL + SHIFT + ALT to move frames.\n\n\nBefore reporting bugs:\n|cffff6060Please disable all other addons|n except for Dragonflight: Reforged.|r\n\n90% of bug reports lead to conflicts with other addons.\nThank you for helping us keep bug reports accurate.\n\nEnjoy |cFFFFD700Dragonflight|r and dont forget to update. ")
+    local text = DFRL.tools.CreateFont(self.welcomeFrame, 15, "Tip:\nPress ESC and select Edit Mode to move frames.\n\n\nBefore reporting bugs:\n|cffff6060Please disable all other addons|n except for Dragonflight: Reforged.|r\n\n90% of bug reports lead to conflicts with other addons.\nThank you for helping us keep bug reports accurate.\n\nEnjoy |cFFFFD700Dragonflight|r and dont forget to update. ")
     text:SetPoint("TOP", title, "BOTTOM", 0, -40)
     text:SetWidth(380)
 

@@ -261,6 +261,12 @@ end)
             resumeBtn:SetScript("OnClick", function()
                 self.menuframe:Hide()
             end)
+            -- References for optional menu extensions. Existing anchors stay
+            -- owned by the menu; no third-party button needs to be reparented.
+            DFRL.menuButtons = {
+                keybindings = keyBtn,
+                resume = resumeBtn,
+            }
         end
     end
 
