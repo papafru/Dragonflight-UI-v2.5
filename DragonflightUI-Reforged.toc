@@ -4,7 +4,7 @@
 ## Version: 1.3.5
 ## Author: Guzruul - Reforged by Stormhand
 ## SavedVariables: DFRL_PROFILES, DFRL_DB_SETUP
-## SavedVariablesPerCharacter: DFRL_CUR_PROFILE, DFRL_FRAMEPOS
+## SavedVariablesPerCharacter: DFRL_CUR_PROFILE, DFRL_FRAMEPOS, DFRL_THEME_STATE
 
 # CORE
 core\error.lua

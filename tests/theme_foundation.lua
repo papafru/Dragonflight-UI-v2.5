@@ -47,6 +47,15 @@ end
 loadSource("core/core.lua")
 loadSource("core/theme.lua")
 
+-- TOC guarantees persistence and correct bootstrap ordering in the client.
+local toc = assert(io.open(root .. "DragonflightUI-Reforged.toc", "r"))
+local tocText = toc:read("*a")
+toc:close()
+assertTrue(string.find(tocText, "DFRL_FRAMEPOS, DFRL_THEME_STATE", 1, true), "theme state declared per character")
+local coreAt = assert(string.find(tocText, "core\\core.lua", 1, true))
+local themeAt = assert(string.find(tocText, "core\\theme.lua", 1, true))
+assertTrue(coreAt < themeAt, "theme initialized after core")
+
 local keys = {
     Bars = {enabled = {true}, barsDarkMode = {0}, barsColor = {{1, 1, 1}}, highlightColor = {{1, .82, 0}}, showGryphoon = {true}, mainBarScale = {1}},
     Player = {enabled = {true}, playerDarkMode = {0}, playerColor = {{1, 1, 1}}},
