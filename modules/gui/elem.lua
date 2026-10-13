@@ -761,6 +761,9 @@ DFRL:NewMod("Gui-elem", 3, function()
                     element:SetChecked(value)
                 elseif data.type == "slider" then
                     element:SetValue(value)
+                    if DFRL.theme and DFRL.theme:Supports(module, name) and element.valueText then
+                        element.valueText:SetText(string.format("%.2f", value))
+                    end
                 elseif data.type == "dropdown" then
                     element.text:SetText(value)
                 elseif data.type == "colour" then

@@ -508,7 +508,8 @@ function DFRL.tools.CreateSlider(parent, name, moduleName, key, minVal, maxVal, 
 
     local currentValue = DFRL:GetTempDB(moduleName, key)
     slider:SetValue(currentValue)
-    valueText:SetText(string.format("%.1f", currentValue))
+    local formatString = DFRL.theme and DFRL.theme:Supports(moduleName, key) and "%.2f" or "%.1f"
+    valueText:SetText(string.format(formatString, currentValue))
 
     slider:SetScript("OnValueChanged", function()
         local newValue = this:GetValue()
