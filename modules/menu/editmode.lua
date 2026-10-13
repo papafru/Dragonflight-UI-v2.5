@@ -89,7 +89,7 @@ DFRL.InitEditModeMenu = function()
     -- Compact control strip: a mode title, a discreet Esc hint, and access to
     -- the existing /kb capture mode. The HUD remains visible while editing.
     local panel = CreateFrame("Frame", "DFRLEditModeToolbar", UIParent)
-    panel:SetWidth(382)
+    panel:SetWidth(515)
     panel:SetHeight(58)
     panel:SetPoint("TOP", UIParent, "TOP", 0, -20)
     panel:SetFrameStrata("TOOLTIP")
@@ -120,6 +120,31 @@ DFRL.InitEditModeMenu = function()
         Edit:Stop()
         if DFRL.hoverbind then DFRL.hoverbind:Start() end
     end)
+
+    -- Reuse Blizzard's native modal dialog rather than permanently adding
+    -- warning text to the compact Edit Mode toolbar.
+    StaticPopupDialogs["DFRL_EDITMODE_RESET_POSITIONS"] = {
+        text = "Restore all fruUI movable elements to their default positions for this character?\n\nThis clears saved frame positions and reloads the UI. Other settings and keybindings are not changed.",
+        button1 = YES,
+        button2 = NO,
+        OnAccept = function()
+            if Edit:IsActive() then
+                Edit:RestoreDefaultPositions()
+            end
+        end,
+        timeout = 0,
+        whileDead = 1,
+        hideOnEscape = 1,
+    }
+
+    local resetButton = DFRL.tools.CreateButton(panel, "Reset Positions", 114, 28)
+    resetButton:SetPoint("RIGHT", keybindButton, "LEFT", -8, 0)
+    resetButton:SetScript("OnClick", function()
+        if Edit:IsActive() then
+            StaticPopup_Show("DFRL_EDITMODE_RESET_POSITIONS")
+        end
+    end)
+
     panel:Hide()
 
     Edit.onStart = function() panel:Show() end
@@ -130,6 +155,11 @@ DFRL.InitEditModeMenu = function()
     local originalToggle = ToggleGameMenu
     _G.ToggleGameMenu = function()
         if Edit:IsActive() then
+            -- First Escape cancels an open Yes/No dialog; a subsequent Escape
+            -- exits Edit Mode without opening the regular game menu.
+            if StaticPopup_EscapePressed and StaticPopup_EscapePressed() then
+                return
+            end
             Edit:Stop()
             return
         end

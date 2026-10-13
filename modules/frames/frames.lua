@@ -186,6 +186,28 @@ DFRL:NewMod("Frames", 2, function()
             return self.active
         end
 
+        -- Position data is stored per character in the dedicated
+        -- DFRL_FRAMEPOS SavedVariable. Reset all of it: restoring positions
+        -- iterates this entire table, including previously registered frames.
+        -- A reload rebuilds stock/addon anchors reliably in dependency order.
+        function Edit:RestoreDefaultPositions()
+            if not self.ready or not self.active then return false end
+
+            -- Stop first: Stop() saves any frame still being dragged.
+            -- Clearing the positions afterward prevents them being restored.
+            self:Stop()
+            if type(DFRL_FRAMEPOS) ~= "table" then
+                DFRL_FRAMEPOS = {}
+            else
+                for name in pairs(DFRL_FRAMEPOS) do
+                    DFRL_FRAMEPOS[name] = nil
+                end
+            end
+
+            ReloadUI()
+            return true
+        end
+
         local function MakeFrameMovable(frame)
             if not frame then return end
             frame:EnableMouse(true)
