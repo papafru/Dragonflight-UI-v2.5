@@ -263,17 +263,21 @@ function DFRL:VersionCheckDB()
 end
 
 function DFRL:SetTempDB(mod, key, value)
-    self.tempDB[mod][key] = value
+    if not (self.theme and self.theme:WriteOverride(mod, key, value)) then
+        self.tempDB[mod][key] = value
+    end
     local cb = mod .. "_" .. key .. "_changed"
     if not self.callbacks[cb] then return end
-    self:TriggerCallback(cb, value)
+    self:TriggerCallback(cb, self:GetTempDB(mod, key))
 end
 
 function DFRL:SetTempDBNoCallback(mod, key, value)
     if not self.tempDB[mod] then
         self.tempDB[mod] = {}
     end
-    self.tempDB[mod][key] = value
+    if not (self.theme and self.theme:WriteOverride(mod, key, value)) then
+        self.tempDB[mod][key] = value
+    end
 end
 
 function DFRL:GetTempValue(name, key)
@@ -281,11 +285,13 @@ function DFRL:GetTempValue(name, key)
         return nil
     end
 
-    return self.tempDB[name][key]
+    return self:GetTempDB(name, key)
 end
 
 function DFRL:GetTempDB(mod, key)
-    return self.tempDB[mod][key]
+    local raw = self.tempDB[mod] and self.tempDB[mod][key]
+    if self.theme then return self.theme:Resolve(mod, key, raw) end
+    return raw
 end
 
 function DFRL:SaveTempDB()
@@ -301,6 +307,7 @@ function DFRL:ResetDB()
     DFRL_PROFILES = {}
     DFRL_DB_SETUP = {}
     DFRL_CUR_PROFILE = {}
+    DFRL_THEME_STATE = nil -- A full database reset also resets theme choice.
     DFRL_DB_SETUP.version = self.DBversion
     ReloadUI()
 end
@@ -363,7 +370,7 @@ function DFRL:NewCallbacks(mod, callbacks)
         self.callbacks[cb] = {}
         tinsert(self.callbacks[cb], func)
 
-        self:TriggerCallback(cb, self.tempDB[mod][key])
+        self:TriggerCallback(cb, self:GetTempDB(mod, key))
 
         count = count + 1
     end
@@ -383,7 +390,7 @@ function DFRL:TriggerAllCallbacks()
         local pos = string.find(name, "_[^_]*$")
         local mod = string.sub(name, 1, pos - 1)
         local key = string.sub(name, pos + 1)
-        local value = self.tempDB[mod] and self.tempDB[mod][key]
+        local value = self:GetTempDB(mod, key)
 
         for _, func in ipairs(callbacks) do
             func(value)
@@ -405,6 +412,7 @@ DFRL:SetScript("OnEvent", function()
     if event == "ADDON_LOADED" and arg1 == "DragonflightUI-Reforged" then
         if boot then return end
         DFRL:InitTempDB()
+        if DFRL.theme then DFRL.theme:Initialize() end
         DFRL:RunMods()
         print("Welcome to |cffffd200Dragonflight:|r Reforged.")
         print("Open menu via |cffddddddESC|r or |cffddddddSLASH DFRL|r.")
