@@ -38,3 +38,9 @@ An in-client screenshot of **Rough Blasting Powder** showed the normal progress 
 - The regression suite now extracts and executes the **actual** Cast module's event and OnUpdate methods using Lua 5.1 mocks. It checks start → completion → flash timing → fade, theme changes mid-completion, Fantasy restoration, and that interruption red and spell text are unchanged.
 
 **Real-client acceptance:** Cast Rough Blasting Powder (or another short spell) and compare the reduced completion effect, then verify Fantasy retains the original visual and interrupted casts still work.
+
+## Final success-color balance (in-client refinement)
+
+Follow-up screenshot on Modern Dark showed that `(.32, .66, .51)` under the existing charcoal fill tint produced an overly dim, teal result (observed approximately RGB `61, 122, 98`). The new success fill uses `(.28, 1, .24)` beneath the **unchanged fill-tracking tint**, producing a clearer green success cue without bringing back the separate green flash. Only the Player completion hue changes; regular progress colors, Target cast bar, Fantasy flash, timing and fade remain untouched.
+
+The completion regression also estimates the visual green channel after the tint and asserts it stays above 70%, preventing another regression to a low-contrast finish. Actual 1.18-client appearance is still required for signoff.

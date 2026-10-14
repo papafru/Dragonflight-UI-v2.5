@@ -6,8 +6,10 @@ local Skin = {entries = {}, listening = false}
 DFRL.castbarSkins = Skin
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
--- Success should read as positive feedback, not a full neon-green flash.
-local SUCCESS = {.32, .66, .51}
+-- A vivid (but not full-white/neon) green survives the existing .28
+-- graphite fill tint. A muted teal at (.32,.66,.51) was visibly too dim.
+-- The extra green flash remains disabled; only the completion fill changes.
+local SUCCESS = {.28, 1, .24}
 
 function Skin:QuietPlayerCompletion()
     local entry = self.entries.player

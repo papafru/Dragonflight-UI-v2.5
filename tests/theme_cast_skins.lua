@@ -218,9 +218,16 @@ eq(runtime.state.casting,false,"Successful finish ends ongoing cast")
 eq(runtime.state.flash,true,"Original completion flash state still ticks")
 eq(runtime.state.fadeOut,true,"Original fade-out state still ticks")
 eq(runtime.state.mode,"flash","Completion mode unchanged")
-eq(runtime.barTexture:GetVertexColor(),.32,"Soft success green replaces neon green")
-eq(runtime.barTexture.vertex[2],.66,"Success green keeps readable green")
-eq(runtime.barTexture.vertex[3],.51,"Success green has desaturated blue")
+eq(runtime.barTexture:GetVertexColor(),.28,"Success fill has moderate red")
+eq(runtime.barTexture.vertex[2],1,"Green channel stays vivid underneath charcoal tint")
+eq(runtime.barTexture.vertex[3],.24,"Success hue is green rather than teal")
+-- Renderer adds a 28% graphite overlay over the animated fill. The
+-- resulting visible green should exceed 70%, avoiding the dim teal result
+-- in the user's follow-up screenshot while keeping the flash suppressed.
+local tint=skin.entries.player.mute
+local effectiveGreen=runtime.barTexture.vertex[2]*(1-tint.vertex[4])+
+    tint.vertex[2]*tint.vertex[4]
+eq(effectiveGreen > .70,true,"Rendered Modern success green stays legible")
 eq(runtime.flashTex:IsShown(),false,"Additional completion flash suppressed immediately")
 eq(runtime.barTexture.width,200,"Completed fill remains at 100 percent")
 runtime:OnUpdate(.09)
@@ -234,7 +241,7 @@ eq(runtime.flashTex:IsShown(),true,"Fantasy shows original flash mid-completion"
 runtime:OnUpdate(.03)
 eq(runtime.flashTex:IsShown(),true,"Fantasy animates completion flash normally")
 theme:Select("modern")
-eq(runtime.barTexture:GetVertexColor(),.32,"Modern retones success mid-completion")
+eq(runtime.barTexture:GetVertexColor(),.28,"Modern retones success mid-completion")
 eq(runtime.flashTex:IsShown(),false,"Modern quiet mode hides in-flight flash")
 runtime:OnUpdate(.09)
 eq(runtime.state.flash,false,"Original flash interval completes normally")
