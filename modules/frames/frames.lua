@@ -72,6 +72,7 @@ DFRL:NewMod("Frames", 2, function()
         Edit.overlays = {}
         Edit.dragging = {}
         Edit.restores = {}
+        Edit.restoreLookup = {}
 
         local grid = CreateFrame("Frame", "DFRLEditModeGrid", UIParent)
         grid:SetAllPoints(UIParent)
@@ -115,7 +116,8 @@ DFRL:NewMod("Frames", 2, function()
         function Edit:RefreshPreviewFrames()
             for i = 1, table.getn(self.restores) do
                 local state = self.restores[i]
-                if state.unit and state.frame and not state.frame:IsShown() then
+                if state.frame and state.frame ~= (DFRL.castbar and DFRL.castbar.bar)
+                    and not state.frame:IsShown() then
                     state.frame:Show()
                 end
             end
@@ -145,35 +147,53 @@ DFRL:NewMod("Frames", 2, function()
         end)
 
         local function TemporarilyShow(frame, unit)
-            if not frame then return end
-            table.insert(Edit.restores, {
+            if not frame or Edit.restoreLookup[frame] then return end
+            local state = {
                 frame = frame,
                 shown = frame:IsShown(),
                 unit = unit,
                 unitExisted = unit and UnitExists(unit) or nil,
-            })
+            }
+            Edit.restoreLookup[frame] = true
+            table.insert(Edit.restores, state)
             frame:Show()
         end
 
         function Edit:Start()
             if self.active then return true end
             if not self.ready then return false end
-            if DFRL.hoverbind and DFRL.hoverbind.active then DFRL.hoverbind:Stop() end
+            if DFRL.hoverbind and DFRL.hoverbind.active then
+                -- If a binding rollback failed, do not enter two modes at
+                -- once and let the user resolve the keybinding warning.
+                if DFRL.hoverbind:Stop() == false then return false end
+            end
             self.active = true
             DFRL.activeScripts["FrameControlScript"] = true
             self.restores = {}
-            -- Target must be shown before Target of Target, since the legacy
-            -- client may anchor or parent the second frame to the first.
+            self.restoreLookup = {}
+            -- Edit Mode must expose every registered movable frame, not only
+            -- frames currently displayed by the client. Optional frames may
+            -- be absent; their absence must not truncate the registered list.
+            -- Show the parent target first so a nested ToT can be seen.
             TemporarilyShow(TargetFrame, "target")
             TemporarilyShow(TargetofTargetFrame, "targettarget")
-            TemporarilyShow(DFRL.castbar)
-            if DFRL.castbar then TemporarilyShow(DFRL.castbar.bar) end
-            if DFRL.castbar and DFRL.castbar.bar then DFRL.castbar.bar:Hide() end
-            if DFRL.targetCastbar and not DFRL:GetTempDB("TargetCastbar", "enemyCastbarAutoPosition") then
-                TemporarilyShow(DFRL.targetCastbar)
+            for i = 1, table.getn(self.overlays) do
+                local frame = self.overlays[i].frame
+                local autoTargetCast = frame == DFRL.targetCastbar
+                    and DFRL:GetTempDB("TargetCastbar", "enemyCastbarAutoPosition")
+                if not autoTargetCast then
+                    local unit = frame == TargetFrame and "target"
+                        or (frame == TargetofTargetFrame and "targettarget" or nil)
+                    TemporarilyShow(frame, unit)
+                end
+            end
+            -- The original cast-bar editor hides the moving fill but keeps
+            -- the bar outline exposed for dragging.
+            if DFRL.castbar then
+                TemporarilyShow(DFRL.castbar.bar)
+                if DFRL.castbar.bar then DFRL.castbar.bar:Hide() end
             end
             TemporarilyShow(FramerateLabel)
-            TemporarilyShow(DFRL.netStatsFrame)
             grid:Show()
             ticker.elapsed = 0
             ticker:Show()
@@ -208,6 +228,7 @@ DFRL:NewMod("Frames", 2, function()
                 if show then state.frame:Show() else state.frame:Hide() end
             end
             self.restores = {}
+            self.restoreLookup = {}
             DFRL.activeScripts["FrameControlScript"] = false
             if self.onStop then self.onStop() end
         end
@@ -316,10 +337,11 @@ DFRL:NewMod("Frames", 2, function()
         end
 
         -- make frames from list movable
-        for i = 1, table.getn(framesToMakeMovable) do
-            if framesToMakeMovable[i] then
-                MakeFrameMovable(framesToMakeMovable[i])
-            end
+        -- Optional/nil entries make this a sparse array: table.getn() may
+        -- stop early. pairs() visits every available frame without relying on
+        -- an undefined numeric boundary.
+        for _, frame in pairs(framesToMakeMovable) do
+            MakeFrameMovable(frame)
         end
 
         -- init

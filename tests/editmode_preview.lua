@@ -62,7 +62,10 @@ _G.DFRL={
  activeScripts={},
  NewDefaults=function(self,name,defaults) end,
  NewMod=function(self,name,priority,fn) callbacks[name]=fn end,
- GetTempDB=function() return false end,
+ GetTempDB=function(_,module,key)
+   if module=="TargetCastbar" and key=="enemyCastbarAutoPosition" then return true end
+   return false
+ end,
  SetTempDBNoCallback=function() end,
 }
 DFRL_FRAMEPOS={}
@@ -71,6 +74,22 @@ TargetFrame=frame("TargetFrame",UIParent)
 TargetofTargetFrame=frame("TargetofTargetFrame",TargetFrame)
 TargetFrame:Hide()
 TargetofTargetFrame:Hide()
+-- Sparse optional list regression: later entries must all remain registered.
+DFRL.mainBar=frame("DFRLMainBar",UIParent)
+DFRL.mainBar:Hide()
+MultiBarRight=frame("MultiBarRight",UIParent)
+MultiBarRight:Hide()
+PartyMemberFrame1=frame("PartyMemberFrame1",UIParent)
+PartyMemberFrame1:Hide()
+BuffButton32=frame("BuffButton32",UIParent)
+BuffButton32:Hide()
+DFRL.netStatsFrame=frame("DFRLNetStats",UIParent)
+DFRL.netStatsFrame:Hide()
+DFRL.castbar=frame("DFRLCastbar",UIParent)
+DFRL.castbar.bar=frame("DFRLCastbarFill",DFRL.castbar)
+DFRL.castbar:Hide()
+DFRL.targetCastbar=frame("DFRLTargetCastbar",UIParent)
+DFRL.targetCastbar:Hide()
 local root=string.match(arg[0],"^(.*[/\\])tests[/\\]") or ""
 assert(loadfile(root.."modules/frames/frames.lua"))()
 eq(type(callbacks.Frames),"function","Existing Frames module registration")
@@ -88,24 +107,39 @@ eq(TargetofTargetFrame:IsShown(),false,"Original ToT missing")
 eq(edit:Start(),true,"Edit Mode starts")
 eq(TargetFrame:IsShown(),true,"Target temporarily visible without a target")
 eq(TargetofTargetFrame:IsShown(),true,"ToT temporarily visible without a target")
+eq(DFRL.mainBar:IsShown(),true,"Later optional action bar exposed in Edit Mode")
+eq(MultiBarRight:IsShown(),true,"Hidden vertical action bar exposed")
+eq(PartyMemberFrame1:IsShown(),true,"Hidden party frame exposed")
+eq(BuffButton32:IsShown(),true,"Hidden buff anchor exposed beyond holes in list")
+eq(DFRL.netStatsFrame:IsShown(),true,"Net stats anchor exposed")
+eq(DFRL.castbar:IsShown(),true,"Cast bar anchor exposed")
+eq(DFRL.castbar.bar:IsShown(),false,"Castbar fill remains intentionally hidden")
+eq(DFRL.targetCastbar:IsShown(),false,"Auto-positioned enemy castbar is excluded")
 eq(TargetofTargetFrame:IsVisible(),true,"ToT visible through its parent")
-local overlayTarget,overlayToT
+local overlayTarget,overlayToT,overlayBuff
 for _,e in ipairs(edit.overlays) do
  if e.frame==TargetFrame then overlayTarget=e.overlay end
  if e.frame==TargetofTargetFrame then overlayToT=e.overlay end
+ if e.frame==BuffButton32 then overlayBuff=e.overlay end
 end
 eq(overlayTarget~=nil,true,"Target registered movable")
 eq(overlayToT~=nil,true,"ToT registered movable")
+eq(overlayBuff~=nil,true,"Later sparse frame registered movable")
 eq(overlayTarget:IsShown(),true,"Target overlay visible")
 eq(overlayToT:IsShown(),true,"ToT overlay visible")
 -- The native client can hide both frames during target events while editing.
 TargetFrame:Hide()
 TargetofTargetFrame:Hide()
+BuffButton32:Hide()
+DFRL.castbar.bar:Hide()
 edit:RefreshOverlays()
 eq(TargetFrame:IsShown(),true,"Refresh restores missing target placeholder")
 eq(TargetofTargetFrame:IsShown(),true,"Refresh restores missing ToT placeholder")
 eq(overlayTarget:IsShown(),true,"Target drag overlay returns after native hide")
 eq(overlayToT:IsShown(),true,"ToT overlay returns after native hide")
+eq(BuffButton32:IsShown(),true,"Hidden extra frame reappears during Edit Mode")
+eq(overlayBuff:IsShown(),true,"Extra overlay reappears")
+eq(DFRL.castbar.bar:IsShown(),false,"Intentional cast fill suppression survives refresh")
 -- A target can be moved even though there is no actual target unit.
 overlayTarget.scripts.OnMouseDown()
 eq(TargetFrame.moving,true,"Drag starts for preview target")
@@ -116,6 +150,14 @@ eq(DFRL_FRAMEPOS.TargetFrame.y,300,"Dragged preview vertical position stored")
 edit:Stop()
 eq(TargetFrame:IsShown(),false,"Target hidden after edit with no unit")
 eq(TargetofTargetFrame:IsShown(),false,"ToT hidden after edit with no unit")
+eq(DFRL.mainBar:IsShown(),false,"Extra action bar restored to hidden")
+eq(MultiBarRight:IsShown(),false,"Vertical action bar restored to hidden")
+eq(PartyMemberFrame1:IsShown(),false,"Party frame restored to hidden")
+eq(BuffButton32:IsShown(),false,"Buff frame restored to hidden")
+eq(DFRL.netStatsFrame:IsShown(),false,"Net stats restored to hidden")
+eq(DFRL.castbar:IsShown(),false,"Cast bar restored to hidden")
+eq(DFRL.castbar.bar:IsShown(),true,"Cast fill original own visibility restored")
+eq(DFRL.targetCastbar:IsShown(),false,"Auto castbar remains untouched")
 eq(overlayTarget:IsShown(),false,"Target edit overlay hidden")
 eq(overlayToT:IsShown(),false,"ToT edit overlay hidden")
 eq(DFRL.activeScripts.FrameControlScript,false,"FrameControl script deactivated")
