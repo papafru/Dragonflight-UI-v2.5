@@ -1311,6 +1311,11 @@ DFRL:NewMod("Bars", 1, function()
 
         -- execute callbacks
         DFRL:NewCallbacks("Bars", callbacks)
+        -- Milestone 3A: attach reversible decorative skins after native
+        -- button creation and the original appearance callbacks.
+        if DFRL.InitActionButtonSkins then
+            DFRL.InitActionButtonSkins(Setup.buttonTypes)
+        end
 
         _G["MultiActionBar_Update"] = function() end
 
