@@ -101,8 +101,15 @@ DFRL:NewMod("Frames", 2, function()
             line:SetPoint("BOTTOMRIGHT", grid, "TOPRIGHT", 0, -i * hStep - .5)
         end
 
+        local function IsUnitProxy(frame)
+            -- FrameXML owns target/targettarget visibility. Edit Mode must
+            -- display movable placeholders, not repeatedly force those
+            -- gameplay frames to Show() with no actual unit.
+            return frame == TargetFrame or frame == TargetofTargetFrame
+        end
+
         local function CanShowOverlay(entry)
-            if not entry.frame:IsVisible() then return false end
+            if not entry.proxy and not entry.frame:IsVisible() then return false end
             if entry.frame == DFRL.targetCastbar and DFRL:GetTempDB("TargetCastbar", "enemyCastbarAutoPosition") then
                 return false
             end
@@ -116,7 +123,8 @@ DFRL:NewMod("Frames", 2, function()
         function Edit:RefreshPreviewFrames()
             for i = 1, table.getn(self.restores) do
                 local state = self.restores[i]
-                if state.frame and state.frame ~= (DFRL.castbar and DFRL.castbar.bar)
+                if state.frame and not IsUnitProxy(state.frame)
+                    and state.frame ~= (DFRL.castbar and DFRL.castbar.bar)
                     and not state.frame:IsShown() then
                     state.frame:Show()
                 end
@@ -174,17 +182,15 @@ DFRL:NewMod("Frames", 2, function()
             -- Edit Mode must expose every registered movable frame, not only
             -- frames currently displayed by the client. Optional frames may
             -- be absent; their absence must not truncate the registered list.
-            -- Show the parent target first so a nested ToT can be seen.
-            TemporarilyShow(TargetFrame, "target")
-            TemporarilyShow(TargetofTargetFrame, "targettarget")
+            -- Target/ToT use independent editor proxies instead of
+            -- showing nonexistent units. All other movable frames retain
+            -- their earlier preview and restoration behavior.
             for i = 1, table.getn(self.overlays) do
                 local frame = self.overlays[i].frame
                 local autoTargetCast = frame == DFRL.targetCastbar
                     and DFRL:GetTempDB("TargetCastbar", "enemyCastbarAutoPosition")
-                if not autoTargetCast then
-                    local unit = frame == TargetFrame and "target"
-                        or (frame == TargetofTargetFrame and "targettarget" or nil)
-                    TemporarilyShow(frame, unit)
+                if not autoTargetCast and not IsUnitProxy(frame) then
+                    TemporarilyShow(frame)
                 end
             end
             -- The original cast-bar editor hides the moving fill but keeps
@@ -210,9 +216,13 @@ DFRL:NewMod("Frames", 2, function()
                 self.overlays[i].overlay:Hide()
             end
             -- ESC can be pressed during a drag, before the mouse-up event.
-            for frame in pairs(self.dragging) do
-                frame:StopMovingOrSizing()
-                SaveFramePosition(frame)
+            for frame, finish in pairs(self.dragging) do
+                if type(finish) == "function" then
+                    finish()
+                else
+                    frame:StopMovingOrSizing()
+                    SaveFramePosition(frame)
+                end
             end
             self.dragging = {}
             grid:Hide()
@@ -305,16 +315,21 @@ DFRL:NewMod("Frames", 2, function()
 
         local function MakeFrameMovable(frame)
             if not frame then return end
+            local proxy = IsUnitProxy(frame)
             frame:EnableMouse(true)
             frame:SetMovable(true)
 
-            local overlay = CreateFrame("Frame", nil, frame)
+            -- Unit-frame visibility is controlled by FrameXML and Mini.
+            -- Parenting a drag handle to those frames inherits their Hide(),
+            -- producing the 60fps ToT flash captured in the test recording.
+            local overlay = CreateFrame("Frame", nil, proxy and UIParent or frame)
             overlay:SetPoint("TOPLEFT", frame, "TOPLEFT", -10, 10)
             overlay:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 10, -10)
             overlay:SetFrameStrata("TOOLTIP")
             overlay:SetFrameLevel(100)
             overlay:SetToplevel(true)
             overlay:EnableMouse(true)
+            if proxy then overlay:SetMovable(true) end
             overlay:SetBackdrop({
                 bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
                 edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -335,19 +350,47 @@ DFRL:NewMod("Frames", 2, function()
             overlay.nameText = nameText
             overlay:Hide()
 
+            local dragLeft, dragTop, frameLeft, frameTop
+            local function FinishDrag()
+                if proxy then
+                    overlay:StopMovingOrSizing()
+                    -- Apply only the proxy's movement delta to the frame.
+                    -- Capturing both origins avoids a 10px jump when the user
+                    -- clicks without dragging, and preserves scaled anchors.
+                    local x, y = overlay:GetLeft(), overlay:GetTop()
+                    if x and y and dragLeft and dragTop and frameLeft and frameTop then
+                        frame:ClearAllPoints()
+                        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT",
+                            frameLeft + x - dragLeft, frameTop + y - dragTop)
+                    end
+                    overlay:ClearAllPoints()
+                    overlay:SetPoint("TOPLEFT", frame, "TOPLEFT", -10, 10)
+                    overlay:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 10, -10)
+                else
+                    frame:StopMovingOrSizing()
+                    if frame == MultiBarBottomLeft or frame == MultiBarBottomRight then
+                        DFRL:SetTempDBNoCallback("actionbars", "movable", false)
+                    end
+                end
+                SaveFramePosition(frame)
+            end
+
             overlay:SetScript("OnMouseDown", function()
                 if not Edit.active then return end
-                Edit.dragging[frame] = true
-                frame:StartMoving()
+                if proxy then
+                    dragLeft, dragTop = overlay:GetLeft(), overlay:GetTop()
+                    frameLeft, frameTop = frame:GetLeft(), frame:GetTop()
+                    overlay:StartMoving()
+                else
+                    frame:StartMoving()
+                end
+                Edit.dragging[frame] = FinishDrag
             end)
             overlay:SetScript("OnMouseUp", function()
                 if not Edit.dragging[frame] then return end
-                frame:StopMovingOrSizing()
+                local finish = Edit.dragging[frame]
                 Edit.dragging[frame] = nil
-                if frame == MultiBarBottomLeft or frame == MultiBarBottomRight then
-                    DFRL:SetTempDBNoCallback("actionbars", "movable", false)
-                end
-                SaveFramePosition(frame)
+                finish()
             end)
 
             local function CreateDirectionButton(dir, xOffset, yOffset, text)
@@ -376,18 +419,21 @@ DFRL:NewMod("Frames", 2, function()
             -- Direct frame dragging is also guarded by Edit Mode; the old
             -- CTRL+SHIFT+ALT hotkey no longer activates anything.
             frame:SetScript("OnDragStart", function()
-                if Edit.active then
-                    Edit.dragging[frame] = true
+                if Edit.active and not proxy then
                     frame:StartMoving()
+                    Edit.dragging[frame] = function()
+                        frame:StopMovingOrSizing()
+                        SaveFramePosition(frame)
+                    end
                 end
             end)
             frame:SetScript("OnDragStop", function()
                 if not Edit.dragging[frame] then return end
-                frame:StopMovingOrSizing()
+                local finish = Edit.dragging[frame]
                 Edit.dragging[frame] = nil
-                SaveFramePosition(frame)
+                finish()
             end)
-            table.insert(Edit.overlays, {frame = frame, overlay = overlay})
+            table.insert(Edit.overlays, {frame = frame, overlay = overlay, proxy = proxy})
         end
 
         -- make frames from list movable

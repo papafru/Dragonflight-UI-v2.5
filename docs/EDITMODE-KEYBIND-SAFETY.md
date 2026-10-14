@@ -4,10 +4,10 @@ This fix targets stock WoW 1.12 and the 1.18 client. It is isolated from main un
 
 ## Edit Mode
 
-- Reveal every registered movable frame temporarily while editing, including Target/Target of Target without active units, hidden bars, party frames and movable buff anchors.
+- Reveal **movable Edit Mode handles** for every registered frame, including Target/Target of Target without active units, hidden bars, party frames and buff anchors. Unit-dependent Target/ToT use UIParent-owned preview handles so ordinary FrameXML hide events cannot make their handles flicker.
 - The optional movable-frame list is sparse; use pairs rather than table.getn to register frames beyond missing entries.
 - Save each frame's initial own visibility and restore it on exit. If the actual target/targettarget changes during the editing session, honor the current unit existence.
-- Reassert temporary visibility after native target events, without changing the unit selection.
+- Reassert temporary visibility for other registered frames, but **never force a fake Target or ToT to Show**. Their independent handles remain stable while FrameXML and Mini continue controlling actual unit visibility.
 - Preserve the existing automatic enemy-castbar positioning exception and deliberately hidden castbar fill.
 - Persist frame moves via the existing per-character DFRL_FRAMEPOS table. No new saved variables or NewMod entries.
 
@@ -32,3 +32,14 @@ This fix targets stock WoW 1.12 and the 1.18 client. It is isolated from main un
 Open the ESC menu without a target; enter Edit Mode. Confirm Target, Target of Target, and other registered hidden frame previews appear. Move the two target frames. ESC, reacquire a target, and confirm the actual unit frame is shown at its saved position.
 
 Run /kb, hover action buttons, assign two new keys, press ESC and verify the originals return. Repeat and click Save Changes, reload, and verify persistence. Test Right-click, Delete, cancel button and a pre-existing key conflict. Lastly re-enter Edit Mode from keybinding mode and confirm that unsaved bindings are discarded.
+
+
+## Video-based flicker regression (October 14)
+
+The user's recording shows the Target of Target editor overlay alternating visible/hidden in **adjacent 60 fps frames** (the regular ToT update hides nonexistent targettarget units, while the editor was re-showing them every refresh). The actual parent unit frame must never be forced visible for drag editing without a real unit.
+
+- Target and ToT now display independent UIParent-owned movable overlays whose anchor points follow the real frames, whether or not the native unit frames are visible.
+- For these two unit-dependent frames, moving the overlay records the pixel delta and transfers that delta to the real frame on mouse-up (or edit exit), then restores the overlay's original relative anchors. This avoids cycles and click-only 10px jumps.
+- The edit visibility poll doesn't re-show these unit frames, and repeated native hides don't affect the independent editor handles.
+- Normal unit logic, skins, targeting, other registered edit overlays and saved frame positions remain intact.
+- The mocked regression now checks eight repeated native hide/refresh cycles, persistent target and ToT handles, real target acquisition/loss, proxy movements and click-without-move stability.

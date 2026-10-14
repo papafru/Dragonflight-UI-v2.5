@@ -22,7 +22,13 @@ function methods:RegisterEvent(e) self.event=e end
 function methods:UnregisterEvent(e) self.event=nil end
 function methods:SetScript(k,v) self.scripts[k]=v end
 function methods:GetScript(k) return self.scripts[k] end
-function methods:SetPoint(...) table.insert(self.points,{...}) end
+function methods:SetPoint(...)
+  local args={...}
+  table.insert(self.points,args)
+  if args[1]=="TOPLEFT" and args[2]==UIParent and args[3]=="BOTTOMLEFT" then
+    self.left,self.top=args[4],args[5]
+  end
+end
 function methods:ClearAllPoints() self.points={} end
 function methods:SetAllPoints(o) self.allPoints=o end
 function methods:SetWidth(x) self.width=x end
@@ -32,8 +38,8 @@ function methods:SetFrameLevel(x) self.level=x end
 function methods:SetToplevel(x) self.toplevel=x end
 function methods:EnableMouse(x) self.mouse=x end
 function methods:SetMovable(x) self.movable=x end
-function methods:Hide() self.shown=false end
-function methods:Show() self.shown=true end
+function methods:Hide() self.shown=false;self.hides=(self.hides or 0)+1 end
+function methods:Show() self.shown=true;self.shows=(self.shows or 0)+1 end
 function methods:IsShown() return self.shown end
 function methods:IsVisible()
  return self.shown and (not self.parent or self.parent:IsVisible())
@@ -109,8 +115,10 @@ eq(edit.ready,true,"Edit controller ready")
 eq(TargetFrame:IsShown(),false,"Original target missing")
 eq(TargetofTargetFrame:IsShown(),false,"Original ToT missing")
 eq(edit:Start(),true,"Edit Mode starts")
-eq(TargetFrame:IsShown(),true,"Target temporarily visible without a target")
-eq(TargetofTargetFrame:IsShown(),true,"ToT temporarily visible without a target")
+eq(TargetFrame:IsShown(),false,"No fake target unit is shown during Edit Mode")
+eq(TargetofTargetFrame:IsShown(),false,"No fake ToT unit is shown during Edit Mode")
+eq(TargetFrame.shows or 0,0,"Never force nonexistent target to show")
+eq(TargetofTargetFrame.shows or 0,0,"Never force nonexistent ToT to show")
 eq(DFRL.mainBar:IsShown(),true,"Later optional action bar exposed in Edit Mode")
 eq(MultiBarRight:IsShown(),true,"Hidden vertical action bar exposed")
 eq(PartyMemberFrame1:IsShown(),true,"Hidden party frame exposed")
@@ -119,7 +127,7 @@ eq(DFRL.netStatsFrame:IsShown(),true,"Net stats anchor exposed")
 eq(DFRL.castbar:IsShown(),true,"Cast bar anchor exposed")
 eq(DFRL.castbar.bar:IsShown(),false,"Castbar fill remains intentionally hidden")
 eq(DFRL.targetCastbar:IsShown(),false,"Auto-positioned enemy castbar is excluded")
-eq(TargetofTargetFrame:IsVisible(),true,"ToT visible through its parent")
+eq(TargetofTargetFrame:IsVisible(),false,"ToT remains naturally hidden with no unit")
 local overlayTarget,overlayToT,overlayBuff
 for _,e in ipairs(edit.overlays) do
  if e.frame==TargetFrame then overlayTarget=e.overlay end
@@ -129,8 +137,12 @@ end
 eq(overlayTarget~=nil,true,"Target registered movable")
 eq(overlayToT~=nil,true,"ToT registered movable")
 eq(overlayBuff~=nil,true,"Later sparse frame registered movable")
-eq(overlayTarget:IsShown(),true,"Target overlay visible")
-eq(overlayToT:IsShown(),true,"ToT overlay visible")
+eq(overlayTarget:IsShown(),true,"Target proxy overlay visible without a unit")
+eq(overlayToT:IsShown(),true,"ToT proxy overlay visible without a unit")
+eq(overlayTarget.parent,UIParent,"Target proxy independent of native frame visibility")
+eq(overlayToT.parent,UIParent,"ToT proxy independent of native frame visibility")
+local totShows=overlayToT.shows or 0
+local targetShows=overlayTarget.shows or 0
 eq(overlayTarget.nameText.text,"Target Frame","Target has readable name")
 eq(overlayToT.nameText.text,"Target of Target","ToT has readable name")
 eq(overlayBuff.nameText.text,"Buff Group 32","Buff anchor has readable name")
@@ -152,9 +164,17 @@ TargetFrame:Hide()
 TargetofTargetFrame:Hide()
 BuffButton32:Hide()
 DFRL.castbar.bar:Hide()
-edit:RefreshOverlays()
-eq(TargetFrame:IsShown(),true,"Refresh restores missing target placeholder")
-eq(TargetofTargetFrame:IsShown(),true,"Refresh restores missing ToT placeholder")
+for i=1,8 do
+  edit:RefreshOverlays() -- native client repeatedly hides nonexistent units
+  eq(TargetFrame:IsShown(),false,"Editor never resurrects nonexistent target")
+  eq(TargetofTargetFrame:IsShown(),false,"Editor never resurrects nonexistent ToT")
+  eq(overlayTarget:IsShown(),true,"Target proxy remains stable")
+  eq(overlayToT:IsShown(),true,"ToT proxy remains stable")
+end
+eq(overlayTarget.shows or 0,targetShows,"Target proxy is not recreated/flickered")
+eq(overlayToT.shows or 0,totShows,"ToT proxy is not recreated/flickered")
+eq(TargetFrame.shows or 0,0,"Target unit never receives extra Show calls")
+eq(TargetofTargetFrame.shows or 0,0,"ToT never receives extra Show calls")
 eq(overlayTarget:IsShown(),true,"Target drag overlay returns after native hide")
 eq(overlayToT:IsShown(),true,"ToT overlay returns after native hide")
 eq(BuffButton32:IsShown(),true,"Hidden extra frame reappears during Edit Mode")
@@ -162,11 +182,24 @@ eq(overlayBuff:IsShown(),true,"Extra overlay reappears")
 eq(DFRL.castbar.bar:IsShown(),false,"Intentional cast fill suppression survives refresh")
 -- A target can be moved even though there is no actual target unit.
 overlayTarget.scripts.OnMouseDown()
-eq(TargetFrame.moving,true,"Drag starts for preview target")
+eq(overlayTarget.moving,true,"Independent target drag proxy starts moving")
+local originalFrameX=TargetFrame:GetLeft()
+local originalFrameY=TargetFrame:GetTop()
+local startX=overlayTarget:GetLeft()
+local startY=overlayTarget:GetTop()
+overlayTarget.left=startX+35
+overlayTarget.top=startY-21
 overlayTarget.scripts.OnMouseUp()
-eq(TargetFrame.moving,false,"Drag ends for preview target")
-eq(DFRL_FRAMEPOS.TargetFrame.x,100,"Dragged preview position stored")
-eq(DFRL_FRAMEPOS.TargetFrame.y,300,"Dragged preview vertical position stored")
+eq(overlayTarget.moving,false,"Independent target drag proxy stops moving")
+eq(DFRL_FRAMEPOS.TargetFrame.x,originalFrameX+35,"Target drag delta persisted")
+eq(DFRL_FRAMEPOS.TargetFrame.y,originalFrameY-21,"Target vertical delta persisted")
+eq(overlayTarget.points[1][2],TargetFrame,"Target proxy reattaches to actual frame")
+overlayToT.scripts.OnMouseDown()
+eq(overlayToT.moving,true,"ToT can be dragged without a real unit")
+overlayToT.scripts.OnMouseUp()
+eq(overlayToT.moving,false,"ToT proxy mouse up completes drag")
+eq(DFRL_FRAMEPOS.TargetofTargetFrame.x,100,"ToT click without movement has no position jump")
+eq(DFRL_FRAMEPOS.TargetofTargetFrame.y,300,"ToT click without movement has no vertical jump")
 edit:Stop()
 eq(TargetFrame:IsShown(),false,"Target hidden after edit with no unit")
 eq(TargetofTargetFrame:IsShown(),false,"ToT hidden after edit with no unit")
@@ -185,18 +218,22 @@ eq(DFRL.activeScripts.FrameControlScript,false,"FrameControl script deactivated"
 edit:Start()
 unit.target=true
 unit.targettarget=true
+TargetFrame:Show() -- native frame handler, not Edit Mode
+TargetofTargetFrame:Show()
 edit:Stop()
-eq(TargetFrame:IsShown(),true,"New real target remains visible after edit")
-eq(TargetofTargetFrame:IsShown(),true,"New real ToT remains visible after edit")
+eq(TargetFrame:IsShown(),true,"Native real target remains visible after edit")
+eq(TargetofTargetFrame:IsShown(),true,"Native real ToT remains visible after edit")
 -- If the target existed before editing but disappeared while editing, hide it.
 unit.target=true
 unit.targettarget=true
 edit:Start()
 unit.target=false
 unit.targettarget=false
+TargetFrame:Hide()
+TargetofTargetFrame:Hide()
 edit:Stop()
-eq(TargetFrame:IsShown(),false,"Lost real target is not left as ghost")
-eq(TargetofTargetFrame:IsShown(),false,"Lost real ToT is not left as ghost")
+eq(TargetFrame:IsShown(),false,"Native lost target is not left as ghost")
+eq(TargetofTargetFrame:IsShown(),false,"Native lost ToT is not left as ghost")
 -- Temporarily exposed status bars are still returned to their original state.
 eq(edit.active,false,"Edit controller stopped")
 print("PASS Edit Mode target previews: "..n.." assertions")
