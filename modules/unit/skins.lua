@@ -70,22 +70,80 @@ local function RestoreAnchors(region, points)
     end
 end
 
-local function CaptureAndHide(entry)
-    entry.savedAlpha = {}
+-- Blizzard 1.12 exposes the actual portraits as global PlayerPortrait /
+-- TargetPortrait regions. owner.portrait is not always the same region.
+-- Save BOTH opacity and own visibility because those may differ due to other
+-- addons or unit state. Do not replace Show(), Hide() or texture updaters.
+local function SuppressOrnate(entry)
     for i = 1, table.getn(entry.ornate) do
         local region = entry.ornate[i]
-        local alpha = region.GetAlpha and region:GetAlpha() or 1
-        entry.savedAlpha[i] = alpha
         region:SetAlpha(0)
+        region:Hide()
     end
 end
 
-local function RestoreOrnate(entry)
-    if not entry.savedAlpha then return end
+local function CaptureAndHide(entry)
+    entry.savedOrnate = {}
     for i = 1, table.getn(entry.ornate) do
-        entry.ornate[i]:SetAlpha(entry.savedAlpha[i])
+        local region = entry.ornate[i]
+        entry.savedOrnate[i] = {
+            alpha = region.GetAlpha and region:GetAlpha() or 1,
+            shown = region:IsShown(),
+        }
     end
-    entry.savedAlpha = nil
+    SuppressOrnate(entry)
+end
+
+local function RestoreOrnate(entry)
+    if not entry.savedOrnate then return end
+    for i = 1, table.getn(entry.ornate) do
+        local region = entry.ornate[i]
+        local saved = entry.savedOrnate[i]
+        region:SetAlpha(saved.alpha)
+        if saved.shown then region:Show() else region:Hide() end
+    end
+    entry.savedOrnate = nil
+end
+
+local function CollectOrnate(unit, owner)
+    local result, seen = {}, {}
+    local function Add(region)
+        if region and not seen[region] then
+            seen[region] = true
+            table.insert(result, region)
+        end
+    end
+    local prefix = unit == "player" and "Player" or "Target"
+    Add(_G[prefix .. "FrameTexture"])
+    Add(_G[prefix .. "FrameBackground"])
+    Add(owner.portrait)
+    Add(_G[prefix .. "Portrait"])
+    Add(_G[prefix .. "FramePortrait"])
+    if unit == "target" then
+        Add(_G.TargetFrameNameBackground)
+    end
+    return result
+end
+
+local function RestylePvP(entry)
+    local icon = entry.pvpIcon
+    if not icon then return end
+    entry.savedPvpAnchor = CaptureAnchors(icon)
+    entry.savedPvpWidth, entry.savedPvpHeight = icon:GetWidth(), icon:GetHeight()
+    icon:ClearAllPoints()
+    icon:SetPoint("TOPLEFT", entry.panel, "TOPRIGHT", 2, -1)
+    icon:SetWidth(34)
+    icon:SetHeight(34)
+end
+
+local function RestorePvP(entry)
+    local icon = entry.pvpIcon
+    if not icon then return end
+    RestoreAnchors(icon, entry.savedPvpAnchor)
+    if entry.savedPvpWidth then icon:SetWidth(entry.savedPvpWidth) end
+    if entry.savedPvpHeight then icon:SetHeight(entry.savedPvpHeight) end
+    entry.savedPvpAnchor = nil
+    entry.savedPvpWidth, entry.savedPvpHeight = nil, nil
 end
 
 local function RestyleText(entry)
@@ -189,13 +247,17 @@ function Style:Apply(selected)
         if modern and not entry.modern then
             CaptureAndHide(entry)
             RestyleText(entry)
+            RestylePvP(entry)
             entry.modern = true
         elseif not modern and entry.modern then
             RestoreOrnate(entry)
             RestoreText(entry)
+            RestorePvP(entry)
             entry.modern = false
         end
         if modern then
+            -- Target/portrait update events can show legacy regions again.
+            SuppressOrnate(entry)
             entry.panel:Show()
             entry.outline:Show()
         else
@@ -223,12 +285,7 @@ function DFRL.InitUnitFrameSkins(unit, health, resource)
     local owner = unit == "player" and _G.PlayerFrame or _G.TargetFrame
     if not owner then return false end
 
-    local ornate = {}
-    local texture = unit == "player" and _G.PlayerFrameTexture or _G.TargetFrameTexture
-    local background = unit == "player" and _G.PlayerFrameBackground or _G.TargetFrameBackground
-    if texture then table.insert(ornate, texture) end
-    if background then table.insert(ornate, background) end
-    if owner.portrait then table.insert(ornate, owner.portrait) end
+    local ornate = CollectOrnate(unit, owner)
 
     local panel, outline, classLabel = MakeRectangle(unit, owner, health, resource)
     local bars = {MakeBarSkin(health, true)}
@@ -239,15 +296,23 @@ function DFRL.InitUnitFrameSkins(unit, health, resource)
         bars = bars, classLabel = classLabel,
         name = owner.name,
         level = unit == "player" and _G.PlayerLevelText or _G.TargetLevelText,
+        pvpIcon = unit == "player" and _G.PlayerPVPIcon or _G.TargetPVPIcon,
         modern = false,
     }
 
-    if unit == "target" then
-        local watcher = CreateFrame("Frame")
-        watcher:RegisterEvent("PLAYER_TARGET_CHANGED")
-        watcher:SetScript("OnEvent", function() Style:UpdateClassification() end)
-        Style.targetWatcher = watcher
-    end
+    local watcher = CreateFrame("Frame")
+    watcher:RegisterEvent("PLAYER_ENTERING_WORLD")
+    watcher:RegisterEvent("UNIT_PORTRAIT_UPDATE")
+    watcher:RegisterEvent("UNIT_FACTION")
+    if unit == "target" then watcher:RegisterEvent("PLAYER_TARGET_CHANGED") end
+    watcher:SetScript("OnEvent", function()
+        -- Legacy client portrait and PvP routines run outside our module.
+        -- Never intercept their texture updates: just re-hide modern art.
+        local entry = Style.entries[unit]
+        if entry and entry.modern then SuppressOrnate(entry) end
+        if unit == "target" then Style:UpdateClassification() end
+    end)
+    Style[unit .. "Watcher"] = watcher
     if not Style.listening and DFRL.theme then
         Style.listening = true
         DFRL.theme:AddListener(function(id) Style:Apply(id) end)

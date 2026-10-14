@@ -28,6 +28,8 @@ function methods:GetFrameLevel() return self.level end
 function methods:EnableMouse(b) self.mouseEnabled = b end
 function methods:SetWidth(w) self.width = w end
 function methods:SetHeight(h) self.height = h end
+function methods:GetHeight() return self.height end
+function methods:GetWidth() return self.width end
 function methods:SetAllPoints(parent) self.allPoints = parent end
 function methods:SetPoint(...) table.insert(self.points, {...}) end
 function methods:ClearAllPoints() self.points = {} end
@@ -80,6 +82,27 @@ PlayerFrame, playerArt, playerBG = Owner("player", .83, .78, .4)
 TargetFrame, targetArt, targetBG = Owner("target", .74, .55, .23)
 PlayerFrameTexture, PlayerFrameBackground = playerArt, playerBG
 TargetFrameTexture, TargetFrameBackground = targetArt, targetBG
+
+-- Legacy FrameXML globals are not guaranteed to alias frame.portrait.
+-- The live client showed TargetPortrait leaking beside the Modern rectangle.
+PlayerPortrait = Region("Texture", PlayerFrame)
+PlayerPortrait:SetAlpha(.68)
+TargetPortrait = Region("Texture", TargetFrame)
+TargetPortrait:SetAlpha(.61)
+PlayerFramePortrait = PlayerFrame.portrait -- intentional duplicate alias
+TargetFramePortrait = TargetFrame.portrait
+TargetFrameNameBackground = Region("Texture", TargetFrame)
+TargetFrameNameBackground:SetAlpha(.42)
+
+PlayerPVPIcon = Region("Texture", PlayerFrame)
+PlayerPVPIcon:SetPoint("CENTER", PlayerFrame, "LEFT", -42, -13)
+PlayerPVPIcon:SetWidth(64)
+PlayerPVPIcon:SetHeight(64)
+TargetPVPIcon = Region("Texture", TargetFrame)
+TargetPVPIcon:SetPoint("TOPRIGHT", TargetFrame, "TOPRIGHT", 22, -11)
+TargetPVPIcon:SetWidth(64)
+TargetPVPIcon:SetHeight(64)
+TargetPVPIcon:Hide() -- prevent a style switch from re-enabling hidden icons
 PlayerLevelText = Region("FontString", PlayerFrame)
 PlayerLevelText:SetPoint("RIGHT", PlayerFrame, "RIGHT", -14, 25)
 PlayerLevelText:SetTextColor(.92, .69, .11)
@@ -102,6 +125,18 @@ local savedHandler = targetHealth.mouseHandler
 local savedAlpha = {
     player = {PlayerFrameTexture:GetAlpha(), PlayerFrameBackground:GetAlpha(), PlayerFrame.portrait:GetAlpha()},
     target = {TargetFrameTexture:GetAlpha(), TargetFrameBackground:GetAlpha(), TargetFrame.portrait:GetAlpha()},
+}
+local originalRegions = {}
+for _,region in ipairs({
+    PlayerFrameTexture, PlayerFrameBackground, PlayerFrame.portrait,
+    PlayerPortrait, TargetFrameTexture, TargetFrameBackground, TargetFrame.portrait,
+    TargetPortrait, TargetFrameNameBackground,
+}) do
+    originalRegions[region] = {alpha=region:GetAlpha(), shown=region:IsShown()}
+end
+local savedPvp = {
+    player = {point={PlayerPVPIcon:GetPoint(1)},width=PlayerPVPIcon:GetWidth(),height=PlayerPVPIcon:GetHeight(),shown=PlayerPVPIcon:IsShown()},
+    target = {point={TargetPVPIcon:GetPoint(1)},width=TargetPVPIcon:GetWidth(),height=TargetPVPIcon:GetHeight(),shown=TargetPVPIcon:IsShown()},
 }
 local savedAnchors = {
     playerName = {PlayerFrame.name:GetPoint(1)},
@@ -136,7 +171,7 @@ eq(DFRL.InitUnitFrameSkins("target", targetHealth, targetMana), true, "Target in
 eq(DFRL.InitUnitFrameSkins("player", playerHealth, playerMana), true, "Player initialization")
 eq(style.listening, true, "Listener connected")
 eq(#listeners, 1, "One theme listener for both unit frames")
-eq(numFrames, 7, "One rectangular outline and two bar outlines per unit, plus target watcher")
+eq(numFrames, 8, "One rectangular outline and two bar outlines per unit, plus two watchers")
 eq(numTextures, 32, "16 textures per unit: panel + five lines + two bar mats + eight lines")
 eq(style.entries.player.modern, false, "Player starts unchanged")
 eq(style.entries.target.modern, false, "Target starts unchanged")
@@ -164,6 +199,10 @@ for _,id in ipairs({"player", "target"}) do
     end
 end
 eq(TargetFrame.portrait:GetAlpha(), savedAlpha.target[3], "Original target portrait initially unchanged")
+eq(#style.entries.player.ornate, 4, "Player graphics include actual portrait global, without alias duplication")
+eq(#style.entries.target.ornate, 5, "Target graphics include actual portrait and nameplate globals")
+eq(style.playerWatcher.events.UNIT_PORTRAIT_UPDATE, true, "Player portrait reappearing events watched")
+eq(style.targetWatcher.events.PLAYER_TARGET_CHANGED, true, "Target changes watched")
 eq(TargetFrameTexture:GetAlpha(), savedAlpha.target[1], "Original target art unchanged")
 eq(targetMana:IsShown(), false, "Existing hidden target mana remains hidden")
 
@@ -184,7 +223,13 @@ for _,id in ipairs({"player", "target"}) do
     eq(e.level.points[1][2], e.health, "Unit level relative to same health bar")
     for _,original in ipairs(e.ornate) do
         eq(original:GetAlpha(), 0, "Circular/ornate originals transparent in Modern")
+        eq(original:IsShown(), false, "Circular/ornate originals truly hidden in Modern")
     end
+    local icon = e.pvpIcon
+    eq(icon:GetWidth(), 34, "PvP icon compact width")
+    eq(icon:GetHeight(), 34, "PvP icon compact height")
+    eq(icon:GetPoint(1), "TOPLEFT", "PvP icon anchored to rectangle")
+    eq(select(2, icon:GetPoint(1)), e.panel, "PvP icon follows current panel")
     for _,bar in ipairs(e.bars) do
         eq(bar.matte.shown, true, "Modern matte visible")
         eq(bar.outline.shown, true, "Modern thin outline visible")
@@ -194,7 +239,21 @@ eq(targetMana:IsShown(), false, "Hidden target mana remains hidden during style"
 eq(playerHealth.value, 35, "Health value unchanged")
 eq(targetHealth.mouseHandler, savedHandler, "Click handling unchanged")
 eq(PlayerFrame.name.textColor[1], .87, "Modern title color")
-eq(TargetFrame.portrait.shown, true, "Portrait hidden via reversible alpha, not destructive Hide()")
+eq(TargetFrame.portrait.shown, false, "Modern explicitly hides portrait")
+eq(TargetPortrait.shown, false, "Actual named TargetPortrait hidden")
+eq(PlayerPortrait.shown, false, "Actual named PlayerPortrait hidden")
+eq(PlayerPVPIcon:IsShown(), true, "Visible Player PvP marker remains visible")
+eq(TargetPVPIcon:IsShown(), false, "Hidden Target PvP marker stays hidden")
+-- Reproduce vanilla portrait code unexpectedly showing/retinting the region.
+TargetPortrait:Show()
+TargetPortrait:SetAlpha(.4)
+style.targetWatcher.scripts.OnEvent()
+eq(TargetPortrait:IsShown(), false, "Target portrait event reasserts hide")
+eq(TargetPortrait:GetAlpha(), 0, "Target portrait event reasserts opacity")
+PlayerPortrait:Show()
+PlayerPortrait:SetAlpha(.5)
+style.playerWatcher.scripts.OnEvent()
+eq(PlayerPortrait:IsShown(), false, "Player portrait event reasserts hide")
 
 -- The original target border still receives classification updates under the
 -- transparent layer; returning to Fantasy must reveal the latest texture.
@@ -233,8 +292,21 @@ for _,id in ipairs({"player", "target"}) do
         eq(bar.outline.shown, false, "Custom thin outline removed from Fantasy")
     end
     for i,region in ipairs(e.ornate) do
-        eq(region:GetAlpha(), savedAlpha[id][i], "Exact original alpha preserved")
+        local saved = originalRegions[region]
+        eq(region:GetAlpha(), saved.alpha, "Exact original alpha preserved")
+        eq(region:IsShown(), saved.shown, "Exact original visibility preserved")
     end
+    local icon = e.pvpIcon
+    local initial = savedPvp[id]
+    eq(icon:GetWidth(), initial.width, "PvP icon width restored")
+    eq(icon:GetHeight(), initial.height, "PvP icon height restored")
+    eq(icon:IsShown(), initial.shown, "PvP icon original visibility remains")
+    local x, ref, rp, dx, dy = icon:GetPoint(1)
+    eq(x, initial.point[1], "PvP original point restored")
+    eq(ref, initial.point[2], "PvP original reference frame restored")
+    eq(rp, initial.point[3], "PvP original relative point restored")
+    eq(dx, initial.point[4], "PvP original x-offset restored")
+    eq(dy, initial.point[5], "PvP original y-offset restored")
 end
 eq(TargetFrameTexture.texture, "new-elite-frame-art", "Dynamic elite artwork survives theme switching")
 eq(PlayerFrame.name.points[1][1], savedAnchors.playerName[1], "Player name restored anchor")
@@ -244,6 +316,9 @@ eq(PlayerLevelText.points[1][1], savedAnchors.playerLevel[1], "Player level rest
 eq(TargetLevelText.points[1][1], savedAnchors.targetLevel[1], "Target level restored anchor")
 eq(PlayerFrame.name.textColor[1], oldColor[1], "Player name original color restored")
 eq(TargetFrame.portrait:GetAlpha(), .74, "Target 3D portrait original alpha restored")
+eq(TargetPortrait:IsShown(), true, "Named target portrait reappears in Fantasy")
+eq(TargetPortrait:GetAlpha(), .61, "Named target portrait alpha restored")
+eq(PlayerPortrait:IsShown(), true, "Named player portrait reappears in Fantasy")
 eq(targetMana.shown, false, "Hidden resource frame never forced visible")
 eq(numFrames, originalFrames, "No new objects during switch")
 
@@ -252,6 +327,8 @@ Switch(nil)
 eq(style.entries.player.panel.shown, false, "Existing Appearance restores Fantasy visuals")
 eq(style.entries.target.panel.shown, false, "Existing Appearance hides rectangular art")
 eq(PlayerFrame.portrait:GetAlpha(), .83, "Existing Appearance portrait alpha restored")
+eq(PlayerPortrait:IsShown(), true, "Existing Appearance restores actual portrait global")
+eq(PlayerPVPIcon:GetWidth(), 64, "Existing Appearance preserves PvP marker size")
 eq(DFRL.InitUnitFrameSkins("player", playerHealth, playerMana), true, "Idempotent init")
 eq(#listeners, 1, "No duplicate theme listener")
 eq(numFrames, originalFrames, "No duplicated frames from initialization")

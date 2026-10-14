@@ -24,3 +24,37 @@ ornate backing clashed with the new outlines. The requested Modern Dark look is
 ## Limitations
 - This is a visual composition, not a new unit frame system. It does not change the saved location of the underlying Player/Target frames or status bars. Header width still follows the existing fixed-width bars.
 - Legacy combat/rest animations are still controlled by the original Player module and require separate inspection during in-game combat; this implementation does not suppress their game-state feedback.
+
+
+## Legacy-region compatibility revision
+
+The October 14 in-client screenshot of the initial rectangular revision exposed
+two remaining mismatches: the actual `TargetPortrait` was still visible
+beside the rectangle, and the `PlayerPVPIcon` was floating at its old
+Dragonflight position.
+
+- Vanilla FrameXML may expose the live portrait as `PlayerPortrait`
+  or `TargetPortrait` rather than (or as well as) the frame's
+  `portrait` field. The renderer now collects distinct owned and
+  global portrait/art references, deduplicating identical objects.
+- Legacy art and portraits are hidden as well as made transparent, and original
+  visibility/alpha is captured and restored on returning to Fantasy or Existing
+  Appearance. Portrait update and faction events reassert concealment while
+  Modern is active without replacing the client's own art update functions.
+- Live PvP icons are managed separately. Their anchors and dimensions are
+  captured; Modern positions them as compact badges just to the right of each
+  rectangle. Their show/hide state is **not** changed, so actual PvP status
+  continues to be controlled by Blizzard/fruUI's PVPIcon module. Fantasy
+  restores the original anchor and dimensions exactly.
+- `TargetFrameNameBackground` (a legacy decorative region) is
+  also suppressed without touching reaction-color logic.
+- The expanded mock tests use separate named `TargetPortrait` /
+  `PlayerPortrait` objects and live PvP icons rather than relying
+  on `owner.portrait` alone. They check repeats, event-driven
+  reappearance, visible/hidden icon status, and exact restoration.
+
+The target's buff/debuff icons remain active and anchored by its native aura
+handler. We have **not** overridden those aura APIs solely for visual polish.
+
+Do not merge until the user's real 1.18 client verifies both portrait removal
+and PvP icon placement.
