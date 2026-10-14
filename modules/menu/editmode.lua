@@ -154,6 +154,17 @@ DFRL.InitEditModeMenu = function()
     -- editing instead of opening the menu, clearing targets or closing windows.
     local originalToggle = ToggleGameMenu
     _G.ToggleGameMenu = function()
+        local hoverbind = DFRL.hoverbind
+        -- Always swallow a second delivery of the same ESC first. Otherwise
+        -- a hovered button could be cleared twice, or the menu could open
+        -- immediately after a keyboard-handler cancellation.
+        if hoverbind and hoverbind.escapeGuard then
+            return
+        end
+        if hoverbind and hoverbind.active then
+            hoverbind:HandleKey("ESCAPE")
+            return
+        end
         if Edit:IsActive() then
             -- First Escape cancels an open Yes/No dialog; a subsequent Escape
             -- exits Edit Mode without opening the regular game menu.
