@@ -130,3 +130,20 @@ very saturated flat bars against the muted charcoal panel.
   alpha restoration, and the tint's attachment to the animated fill width.
 
 Actual 1.18-client visual signoff is still required before merging PR #4.
+
+
+## Unified Player / Target / Target of Target design
+
+The next review expands Modern Dark to the `Mini` module's real Target of Target (ToT) bars. The Mini module keeps all targettarget data, font/text handling, debuffs, interaction and scale settings; the existing `modules/unit/skins.lua` renderer now understands the `tot` unit in addition to Player/Target.
+
+- Initialization happens only after `Mini:Run()` creates `totHealthBar` and `totManaBar`. No additional `NewMod` entry, no second renderer, and no extra SavedVariables.
+- ToT's portrait and ornate background are reversibly suppressed, while the name moves into a compact rectangle and the original Debuff anchors/handlers are preserved. The icon art and text/position restore when Fantasy or Existing Appearance is selected.
+- The ToT health/power tracks expand from 60 to 86 pixels in Modern Dark, with 16px / 8px heights and a 3px visual gap. The original bar width, height and relative resource-bar anchors are restored exactly.
+- Modern Dark now reduces outer border saturation and uses muted graphitic tracks and a 36%-opacity fill-tracking charcoal tint. Native health reaction/class colors, mana/rage/energy values, animations and user-selected text numbers continue to update the underlying fill.
+- For Target or ToT units lacking a power bar, `Style:UpdateLayout(unit)` anchors the rectangle's bottom directly to health instead of an invisible resource frame. The rectangle expands again when resource becomes visible. It is invoked after the existing Target event handler and after Mini's `TargetofTarget_Update` processing, avoiding a separate polling loop.
+- The original named ToT portrait may be updated by FrameXML even after theme selection. `UpdateLayout` reasserts Modern-only suppression without replacing original portrait event callbacks.
+- Reuse theme switch /reset behavior; Fantasy and Existing Appearance return both ToT and original Player/Target visuals, including ToT width and resource bar anchor.
+
+### Additional tests
+
+The mocked Lua 5.1 tests now create the actual Mini-style ToT frame and its independently anchored status bars. They assert three-unit theme switching, ToT artwork suppression/restoration, compact bar dimensions, name anchor restoration, dynamic panels for no-resource Target/ToT, and original Mini bar anchors after returning to Fantasy. The real 1.18 client still must validate ToT positioning and debuffs before PR #4 is merged.

@@ -134,6 +134,24 @@ local function Bar(isHealth)
 end
 local playerHealth, playerMana = Bar(true), Bar(false)
 local targetHealth, targetMana = Bar(true), Bar(false)
+-- The Mini module creates independently anchored 60px ToT status bars.
+TargetofTargetFrame = Region("Frame")
+TargetofTargetFrame.name = Region("FontString", TargetofTargetFrame)
+TargetofTargetFrame.name:SetPoint("TOPLEFT", TargetofTargetFrame, "TOPLEFT", 40, 25)
+TargetofTargetFrame.portrait = Region("Texture", TargetofTargetFrame)
+TargetofTargetTexture = Region("Texture", TargetofTargetFrame)
+TargetofTargetPortrait = Region("Texture", TargetofTargetFrame)
+TargetofTargetBackground = Region("Texture", TargetofTargetFrame)
+local totHealth, totMana = Bar(true), Bar(false)
+totHealth:SetWidth(60)
+totHealth:SetHeight(13)
+totHealth:SetPoint("LEFT", TargetofTargetFrame, "LEFT", 40, 1)
+totMana:SetWidth(60)
+totMana:SetHeight(7)
+totMana:SetPoint("TOPLEFT", totHealth, "BOTTOMLEFT", 0, 1)
+local totOriginalManaPoint = {totMana:GetPoint(1)}
+local totOriginalNamePoint = {TargetofTargetFrame.name:GetPoint(1)}
+local totOriginalArt = {TargetofTargetTexture:GetAlpha(),TargetofTargetPortrait:GetAlpha(),TargetofTargetBackground:GetAlpha()}
 local combatParent = Region("Frame", PlayerFrame)
 combatParent:SetAlpha(.82)
 local combatRing = combatParent:CreateTexture(nil, "OVERLAY")
@@ -162,6 +180,8 @@ for _,region in ipairs({
     PlayerFrameTexture, PlayerFrameBackground, PlayerFrame.portrait,
     PlayerPortrait, TargetFrameTexture, TargetFrameBackground, TargetFrame.portrait,
     TargetPortrait, TargetFrameNameBackground,
+    TargetofTargetFrame.portrait, TargetofTargetTexture,
+    TargetofTargetPortrait, TargetofTargetBackground,
 }) do
     originalRegions[region] = {alpha=region:GetAlpha(), shown=region:IsShown()}
 end
@@ -200,10 +220,16 @@ eq(numFrames, 0, "No frames on invalid init")
 -- Target can initialize before Player. This is how these modules initialize.
 eq(DFRL.InitUnitFrameSkins("target", targetHealth, targetMana), true, "Target initialization")
 eq(DFRL.InitUnitFrameSkins("player", playerHealth, playerMana, effects), true, "Player initialization with animation parent references")
+eq(DFRL.InitUnitFrameSkins("tot", totHealth, totMana), true, "Mini module's ToT frame initialization")
 eq(style.listening, true, "Listener connected")
 eq(#listeners, 1, "One theme listener for both unit frames")
-eq(numFrames, 4, "One outer rectangular border per unit plus two watchers")
-eq(numTextures, 26, "Four original bar regions, six rectangle regions and tint/effect textures")
+eq(numFrames, 6, "One panel outline and watcher per unit, including Mini ToT")
+eq(numTextures, 38, "Three units' original bars, Modern panels, tints, and effect textures")
+eq(style.entries.tot.unit, "tot", "ToT has distinct renderer state")
+eq(style.entries.tot.owner, TargetofTargetFrame, "ToT attaches to real Mini frame")
+eq(style.entries.tot.pvpIcon, nil, "ToT doesn't borrow Player/Target shield")
+eq(style.entries.tot.level, nil, "No required ToT level region")
+eq(#style.entries.tot.bars, 2, "Mini's custom ToT health and resource bars styled")
 eq(style.entries.player.modern, false, "Player starts unchanged")
 eq(style.entries.target.modern, false, "Target starts unchanged")
 
@@ -241,6 +267,9 @@ eq(style.playerWatcher.events.PLAYER_REGEN_DISABLED, true, "Combat start updates
 eq(style.playerWatcher.events.PLAYER_REGEN_ENABLED, true, "Combat exit updates compact indicator")
 eq(style.playerWatcher.events.PLAYER_UPDATE_RESTING, true, "Resting updates reassert concealment")
 eq(style.entries.player.effects, effects, "Animation parents owned by Player code")
+eq(style.totWatcher.events.UNIT_TARGET, true, "ToT updates when a unit's target changes")
+eq(totHealth:GetWidth(), 60, "Mini ToT base health width untouched before selection")
+eq(totMana:GetWidth(), 60, "Mini ToT base power width untouched before selection")
 eq(TargetFrameTexture:GetAlpha(), savedAlpha.target[1], "Original target art unchanged")
 eq(targetMana:IsShown(), false, "Existing hidden target mana remains hidden")
 
@@ -249,6 +278,39 @@ local function Switch(id)
     for _,listener in ipairs(listeners) do listener(id) end
 end
 Switch("modern")
+eq(totHealth:GetWidth(), 86, "Modern ToT health fills a wider rectangular panel")
+eq(totMana:GetWidth(), 86, "Modern ToT resource shares panel width")
+eq(totHealth:GetHeight(), 16, "ToT health is legible at compact size")
+eq(totMana:GetHeight(), 8, "ToT resource is intentionally secondary")
+eq(totHealth.fill:GetTexture(), "Interface\\Buttons\\WHITE8X8", "ToT flat health fill")
+eq(totMana.fill:GetTexture(), "Interface\\Buttons\\WHITE8X8", "ToT flat resource fill")
+eq(totMana:GetPoint(1), "TOPLEFT", "Modern ToT power anchor type")
+eq(select(2,totMana:GetPoint(1)), totHealth, "Modern ToT resource anchored below health")
+eq(select(5,totMana:GetPoint(1)), -3, "Modern ToT health/power spacing")
+eq(TargetofTargetTexture:IsShown(), false, "Modern hides Mini ToT frame art")
+eq(TargetofTargetPortrait:IsShown(), false, "Modern hides original ToT portrait")
+eq(TargetofTargetBackground:IsShown(), false, "Modern hides original ToT background")
+eq(style.entries.tot.panel:IsShown(), true, "Modern ToT panel visible")
+eq(TargetofTargetFrame.name:GetPoint(1), "TOPLEFT", "Modern ToT name in rectangular header")
+eq(select(2,TargetofTargetFrame.name:GetPoint(1)),totHealth,"Modern ToT name positioned over custom bar")
+
+-- Existing hostile target may have no power. Panels must close that gap and
+-- reopen only when the Mini or Target module makes the power bar visible.
+eq(select(2,style.entries.target.panel:GetPoint(2)),targetHealth,"Target no-power rectangle collapses")
+targetMana:Show()
+style:UpdateLayout("target")
+eq(select(2,style.entries.target.panel:GetPoint(2)),targetMana,"Target power panel expands")
+targetMana:Hide()
+style:UpdateLayout("target")
+eq(select(2,style.entries.target.panel:GetPoint(2)),targetHealth,"Target collapses after power loss")
+totMana:Hide()
+style:UpdateLayout("tot")
+eq(select(2,style.entries.tot.panel:GetPoint(2)),totHealth,"ToT panel collapses without power")
+totMana:Show()
+style.totWatcher.scripts.OnEvent()
+eq(select(2,style.entries.tot.panel:GetPoint(2)),totMana,"ToT panel expands after a power update")
+Switch("modern")
+eq(totHealth:GetWidth(),86,"Repeated Modern selection doesn't accumulate ToT width")
 for _,id in ipairs({"player", "target"}) do
     local e = style.entries[id]
     eq(e.modern, true, "Modern state active")
@@ -351,6 +413,22 @@ Switch("modern")
 eq(numFrames, originalFrames, "Repeat Modern selection creates no frames")
 eq(numTextures, originalTextures, "Repeat Modern selection creates no textures")
 Switch("fantasy")
+eq(totHealth:GetHeight(),13,"Fantasy restores original ToT health height")
+eq(totMana:GetHeight(),7,"Fantasy restores original ToT power height")
+eq(totHealth:GetWidth(),60,"Fantasy restores original ToT health width")
+eq(totMana:GetWidth(),60,"Fantasy restores original ToT power width")
+local q,ref,rp,dx,dy=totMana:GetPoint(1)
+eq(q,totOriginalManaPoint[1],"ToT resource anchor type restored")
+eq(ref,totOriginalManaPoint[2],"ToT resource original health anchor restored")
+eq(rp,totOriginalManaPoint[3],"ToT relative anchor restored")
+eq(dx,totOriginalManaPoint[4],"ToT power horizontal offset restored")
+eq(dy,totOriginalManaPoint[5],"ToT power vertical offset restored")
+eq(TargetofTargetFrame.name:GetPoint(1),totOriginalNamePoint[1],"ToT name original anchor restored")
+eq(TargetofTargetTexture:IsShown(),true,"Fantasy restores ToT frame artwork")
+eq(TargetofTargetPortrait:IsShown(),true,"Fantasy restores ToT circular portrait")
+eq(TargetofTargetBackground:IsShown(),true,"Fantasy restores ToT decorative background")
+eq(totHealth.fill:GetTexture(),"original-beveled-health.tga","ToT original health texture restored")
+eq(totMana.fill:GetTexture(),"original-mana.tga","ToT original resource texture restored")
 for _,id in ipairs({"player", "target"}) do
     local e = style.entries[id]
     eq(e.modern, false, "Original mode restored")
@@ -409,6 +487,8 @@ Switch("modern")
 Switch(nil)
 eq(style.entries.player.panel.shown, false, "Existing Appearance restores Fantasy visuals")
 eq(style.entries.target.panel.shown, false, "Existing Appearance hides rectangular art")
+eq(style.entries.tot.panel.shown, false, "Existing Appearance hides Modern ToT artwork")
+eq(totHealth:GetWidth(),60,"Existing Appearance keeps original Mini ToT width")
 eq(PlayerFrame.portrait:GetAlpha(), .83, "Existing Appearance portrait alpha restored")
 eq(PlayerPortrait:IsShown(), true, "Existing Appearance restores actual portrait global")
 eq(PlayerPVPIcon:GetWidth(), 64, "Existing Appearance preserves PvP marker size")

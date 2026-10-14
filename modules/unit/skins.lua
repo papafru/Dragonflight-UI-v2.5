@@ -8,9 +8,9 @@ DFRL.unitFrameSkins = Style
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local PALETTE = {
-    background = {.022, .033, .052, .95},
-    accent = {.43, .72, .90},
-    muted = {.25, .39, .52},
+    background = {.025, .038, .052, .96},
+    accent = {.42, .66, .79},
+    muted = {.23, .34, .44},
     text = {.87, .92, .98},
 }
 
@@ -26,16 +26,33 @@ end
 -- Bars from CreateStatusBar already own a background, a fill and cutout
 -- animation state. Restyle those existing regions instead of adding nested
 -- outlines that cross the two bars (the vanilla sizes overlap by 6 pixels).
-local function MakeBarSkin(bar, isHealth)
+local function CaptureBarPoints(frame)
+    local list = {}
+    if not frame or not frame.GetNumPoints then return list end
+    for i=1,frame:GetNumPoints() do
+        local p, relative, rp, x, y = frame:GetPoint(i)
+        table.insert(list,{p,relative,rp,x,y})
+    end
+    return list
+end
+
+local function RestoreBarPoints(frame, points)
+    if not points or table.getn(points)==0 then return end
+    frame:ClearAllPoints()
+    for i=1,table.getn(points) do frame:SetPoint(unpack(points[i])) end
+end
+
+local function MakeBarSkin(bar, isHealth, tot, healthBar)
     -- This tint follows the animated fill's width, not the entire bar, so
     -- empty health/resource space stays charcoal. The game's existing fill
     -- color (hostility, class, power type) remains authoritative.
     local tint = bar:CreateTexture(nil, "OVERLAY")
     tint:SetTexture(WHITE)
     tint:SetAllPoints(bar.fill)
-    tint:SetVertexColor(.025, .038, .055, .24)
+    tint:SetVertexColor(.025, .038, .055, .36)
     tint:Hide()
-    return {bar = bar, isHealth = isHealth, tint = tint}
+    return {bar = bar, isHealth = isHealth, tint = tint,
+        tot = tot, totResource = not isHealth and tot and healthBar or nil}
 end
 
 local function ApplyBarSkin(skin, modern)
@@ -43,6 +60,8 @@ local function ApplyBarSkin(skin, modern)
     if modern and not skin.original then
         skin.original = {
             height = bar:GetHeight(),
+            width = bar:GetWidth(),
+            anchors = skin.totResource and CaptureBarPoints(bar) or nil,
             fillTexture = bar.fill:GetTexture(),
             cutoutTexture = bar.cutoutTexture,
             background = {bar.bg:GetVertexColor()},
@@ -50,10 +69,18 @@ local function ApplyBarSkin(skin, modern)
         bar.fill:SetTexture(WHITE)
         -- Damage cutouts must match the flat fill, not flash the old bevel.
         bar.cutoutTexture = WHITE
-        bar.bg:SetVertexColor(.035, .055, .080, .98)
-        -- Original health starts at y=0 and power at y=-24. Make a neat
-        -- 20px / 10px pair, with a 4px gap and no overlapping outlines.
-        bar:SetHeight(skin.isHealth and 20 or 10)
+        bar.bg:SetVertexColor(.075, .105, .135, .97)
+        if skin.tot then
+            bar:SetWidth(86)
+            bar:SetHeight(skin.isHealth and 16 or 8)
+            if skin.totResource then
+                bar:ClearAllPoints()
+                bar:SetPoint("TOPLEFT", skin.totResource, "BOTTOMLEFT", 0, -3)
+            end
+        else
+            -- Legacy Player/Target power starts 24px below health top.
+            bar:SetHeight(skin.isHealth and 20 or 10)
+        end
         bar:Update()
         skin.tint:Show()
     elseif not modern and skin.original then
@@ -62,6 +89,8 @@ local function ApplyBarSkin(skin, modern)
         bar.cutoutTexture = original.cutoutTexture
         bar.bg:SetVertexColor(unpack(original.background))
         bar:SetHeight(original.height)
+        bar:SetWidth(original.width)
+        if original.anchors then RestoreBarPoints(bar, original.anchors) end
         bar:Update()
         skin.tint:Hide()
         skin.original = nil
@@ -159,15 +188,16 @@ local function CollectOrnate(unit, owner)
             table.insert(result, region)
         end
     end
-    local prefix = unit == "player" and "Player" or "Target"
+    local prefix = unit == "player" and "Player" or
+        (unit == "target" and "Target" or "TargetofTarget")
     Add(_G[prefix .. "FrameTexture"])
     Add(_G[prefix .. "FrameBackground"])
+    Add(_G[prefix .. "Texture"])
+    Add(_G[prefix .. "Background"])
     Add(owner.portrait)
     Add(_G[prefix .. "Portrait"])
     Add(_G[prefix .. "FramePortrait"])
-    if unit == "target" then
-        Add(_G.TargetFrameNameBackground)
-    end
+    if unit == "target" then Add(_G.TargetFrameNameBackground) end
     return result
 end
 
@@ -254,8 +284,8 @@ end
 local function MakeRectangle(unit, owner, health, resource)
     local panel = owner:CreateTexture(nil, "BACKGROUND")
     panel:SetTexture(WHITE)
-    panel:SetPoint("TOPLEFT", health, "TOPLEFT", -8, 23)
-    panel:SetPoint("BOTTOMRIGHT", resource or health, "BOTTOMRIGHT", 8, -8)
+    panel:SetPoint("TOPLEFT", health, "TOPLEFT", -5, 23)
+    panel:SetPoint("BOTTOMRIGHT", resource or health, "BOTTOMRIGHT", 5, -6)
     panel:SetVertexColor(unpack(PALETTE.background))
     panel:Hide()
 
@@ -287,6 +317,25 @@ local function MakeRectangle(unit, owner, health, resource)
     return panel, outline, classification, edge[3]
 end
 
+-- The target can have no power resource at all. A panel bound to the hidden
+-- power bar leaves a large empty lower section. Keep the existing bars, but
+-- use the actual health-bar bottom until power becomes available.
+function Style:UpdateLayout(unit)
+    local entry = self.entries[unit]
+    if not entry or not entry.modern then return end
+    -- Mini/Target update hooks run after native FrameXML callbacks, which may
+    -- re-show portrait regions. Reassert without modifying their Show scripts.
+    SuppressOrnate(entry)
+    local resourceVisible = entry.resource and entry.resource:IsShown() or false
+    if entry.resourceVisible == resourceVisible then return end
+    entry.resourceVisible = resourceVisible
+    entry.panel:ClearAllPoints()
+    entry.panel:SetPoint("TOPLEFT", entry.health, "TOPLEFT", -5, 23)
+    entry.panel:SetPoint("BOTTOMRIGHT",
+        resourceVisible and entry.resource or entry.health,
+        "BOTTOMRIGHT", 5, -6)
+end
+
 function Style:Apply(selected)
     local modern = selected == "modern"
     for _, entry in pairs(self.entries) do
@@ -296,6 +345,7 @@ function Style:Apply(selected)
             RestylePvP(entry)
             entry.modern = true
             SetEffects(entry, true)
+            entry.resourceVisible = nil
         elseif not modern and entry.modern then
             RestoreOrnate(entry)
             RestoreText(entry)
@@ -309,6 +359,7 @@ function Style:Apply(selected)
             entry.panel:Show()
             entry.outline:Show()
             UpdateCombatAccent(entry)
+            self:UpdateLayout(entry.unit)
         else
             entry.panel:Hide()
             entry.outline:Hide()
@@ -321,28 +372,32 @@ function Style:Apply(selected)
 end
 
 function DFRL.InitUnitFrameSkins(unit, health, resource, effects)
-    if unit ~= "player" and unit ~= "target" then return false end
+    if unit ~= "player" and unit ~= "target" and unit ~= "tot" then return false end
     if Style.entries[unit] then return true end
     if not health or not health.fill or not health.bg then return false end
-    local owner = unit == "player" and _G.PlayerFrame or _G.TargetFrame
+    local owner = unit == "player" and _G.PlayerFrame or
+        (unit == "target" and _G.TargetFrame or _G.TargetofTargetFrame)
     if not owner then return false end
 
     local ornate = CollectOrnate(unit, owner)
 
     local panel, outline, classLabel, combatEdge = MakeRectangle(unit, owner, health, resource)
-    local bars = {MakeBarSkin(health, true)}
+    local tot = unit == "tot"
+    local bars = {MakeBarSkin(health, true, tot, health)}
     if resource and resource.fill and resource.bg then
-        table.insert(bars, MakeBarSkin(resource, false))
+        table.insert(bars, MakeBarSkin(resource, false, tot, health))
     end
     Style.entries[unit] = {
-        owner = owner, health = health, resource = resource,
+        unit = unit, owner = owner, health = health, resource = resource,
         ornate = ornate, panel = panel, outline = outline,
         bars = bars, classLabel = classLabel,
         combatEdge = unit == "player" and combatEdge or nil,
         effects = unit == "player" and effects or nil,
         name = owner.name,
-        level = unit == "player" and _G.PlayerLevelText or _G.TargetLevelText,
-        pvpIcon = unit == "player" and _G.PlayerPVPIcon or _G.TargetPVPIcon,
+        level = unit == "player" and _G.PlayerLevelText or
+            (unit == "target" and _G.TargetLevelText or _G.TargetofTargetLevelText),
+        pvpIcon = unit == "player" and _G.PlayerPVPIcon or
+            (unit == "target" and _G.TargetPVPIcon or nil),
         modern = false,
     }
 
@@ -350,8 +405,9 @@ function DFRL.InitUnitFrameSkins(unit, health, resource, effects)
     watcher:RegisterEvent("PLAYER_ENTERING_WORLD")
     watcher:RegisterEvent("UNIT_PORTRAIT_UPDATE")
     watcher:RegisterEvent("UNIT_FACTION")
-    if unit == "target" then
+    if unit == "target" or unit == "tot" then
         watcher:RegisterEvent("PLAYER_TARGET_CHANGED")
+        if unit == "tot" then watcher:RegisterEvent("UNIT_TARGET") end
     else
         watcher:RegisterEvent("PLAYER_REGEN_DISABLED")
         watcher:RegisterEvent("PLAYER_REGEN_ENABLED")
@@ -369,6 +425,7 @@ function DFRL.InitUnitFrameSkins(unit, health, resource, effects)
             end
         end
         if unit == "target" then Style:UpdateClassification() end
+        if entry and entry.modern then Style:UpdateLayout(unit) end
     end)
     Style[unit .. "Watcher"] = watcher
     if not Style.listening and DFRL.theme then

@@ -739,6 +739,7 @@ DFRL:NewMod("Target", 1, function()
             Setup:UpdateBarColor()
         end
 
+        if DFRL.unitFrameSkins then DFRL.unitFrameSkins:UpdateLayout("target") end
         if event == "PLAYER_ENTERING_WORLD" then
             f:UnregisterEvent("PLAYER_ENTERING_WORLD")
         end
