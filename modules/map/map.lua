@@ -131,6 +131,11 @@ DFRL:NewMod("Map", 1, function()
                 local use12h = DFRL:GetTempDB('Map', 'timeFormat12h')
                 local localTime = use12h and date('%I:%M %p') or date('%H:%M')
                 self.timeText:SetText(localTime)
+                -- Refit only when zone/time strings change; reuse the
+                -- existing 5-second clock update instead of new OnUpdate.
+                if DFRL.minimapSkins then
+                    DFRL.minimapSkins:UpdateHeader()
+                end
                 DFRL.activeScripts['MapTimeScript'] = true
             end)
 
@@ -600,6 +605,11 @@ DFRL:NewMod("Map", 1, function()
 
         callbacks.alphaShadow = function(value)
             Setup.minimapShadow:SetAlpha(value)
+            if DFRL.minimapSkins then
+                -- The shadow slider remains profile-owned. Preserve its
+                -- latest alpha even while the Modern square conceals it.
+                DFRL.minimapSkins:UpdateShadowAlpha(value)
+            end
         end
 
         callbacks.showZoom = function(value)
@@ -742,6 +752,9 @@ DFRL:NewMod("Map", 1, function()
                 Setup.minimapShadow:SetTexture(Setup.texpath.. "uiminimapshadow.tga")
                 Minimap:SetMaskTexture("Textures\\MinimapMask")
             end
+            -- Shape overrides may change while Modern is already selected;
+            -- update the lean frame without altering mouse/zoom behavior.
+            if DFRL.minimapSkins then DFRL.minimapSkins:Refresh() end
         end
 
         callbacks.zoomX = function(value)
@@ -803,8 +816,30 @@ DFRL:NewMod("Map", 1, function()
             Setup.timeText:SetText(localTime)
         end
 
+        -- The old settings callbacks still own font, alignment, time format
+        -- and panel dimensions. Reflow Modern's header after a settings
+        -- change instead of overriding any user's configured values.
+        local headerKeys = {
+            "topPanelWidth", "topPanelHeight", "zoneTextSize",
+            "zoneTextX", "zoneTextY", "timeSize", "timeX", "timeY",
+            "timeFormat12h", "topPanelFont", "mapTime",
+        }
+        for _, key in ipairs(headerKeys) do
+            local callback = callbacks[key]
+            if callback then
+                callbacks[key] = function(value)
+                    callback(value)
+                    if DFRL.minimapSkins then
+                        DFRL.minimapSkins:UpdateHeader(true)
+                    end
+                end
+            end
+        end
+
         -- execute callbacks
         DFRL:NewCallbacks("Map", callbacks)
+        -- The map is constructed and callbacks already applied at this point.
+        if DFRL.InitMinimapSkin then DFRL.InitMinimapSkin(Setup) end
 
         f:UnregisterEvent("PLAYER_ENTERING_WORLD")
     end)
