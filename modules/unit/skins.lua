@@ -23,33 +23,39 @@ local function Line(holder, first, fx, fy, second, sx, sy, horizontal)
     return region
 end
 
-local function Outline(parent, reference, inset, accent)
-    local border = CreateFrame("Frame", nil, parent)
-    border:SetAllPoints(reference)
-    border:SetFrameLevel(math.max(parent:GetFrameLevel(), reference:GetFrameLevel()) + 2)
-    border:EnableMouse(false)
-    local lines = {
-        Line(border, "TOPLEFT", -inset, inset, "TOPRIGHT", inset, inset, true),
-        Line(border, "BOTTOMLEFT", -inset, -inset, "BOTTOMRIGHT", inset, -inset, true),
-        Line(border, "TOPLEFT", -inset, inset, "BOTTOMLEFT", -inset, -inset, false),
-        Line(border, "TOPRIGHT", inset, inset, "BOTTOMRIGHT", inset, -inset, false),
-    }
-    for i = 1, table.getn(lines) do
-        lines[i]:SetVertexColor(accent[1], accent[2], accent[3], .94)
-    end
-    border:Hide()
-    return border
+-- Bars from CreateStatusBar already own a background, a fill and cutout
+-- animation state. Restyle those existing regions instead of adding nested
+-- outlines that cross the two bars (the vanilla sizes overlap by 6 pixels).
+local function MakeBarSkin(bar, isHealth)
+    return {bar = bar, isHealth = isHealth}
 end
 
-local function MakeBarSkin(bar, isHealth)
-    local matte = bar:CreateTexture(nil, "BACKGROUND")
-    matte:SetTexture(WHITE)
-    matte:SetAllPoints(bar)
-    matte:SetVertexColor(.025, .04, .06, .90)
-    matte:Hide()
-    local accent = isHealth and PALETTE.accent or PALETTE.muted
-    local outline = Outline(bar, bar, 1, accent)
-    return {bar = bar, matte = matte, outline = outline}
+local function ApplyBarSkin(skin, modern)
+    local bar = skin.bar
+    if modern and not skin.original then
+        skin.original = {
+            height = bar:GetHeight(),
+            fillTexture = bar.fill:GetTexture(),
+            cutoutTexture = bar.cutoutTexture,
+            background = {bar.bg:GetVertexColor()},
+        }
+        bar.fill:SetTexture(WHITE)
+        -- Damage cutouts must match the flat fill, not flash the old bevel.
+        bar.cutoutTexture = WHITE
+        bar.bg:SetVertexColor(.035, .055, .080, .98)
+        -- Both original 30px health bars overlap the resource bars 6px.
+        -- 22px retains readable health text and creates a 2px clear gap.
+        if skin.isHealth then bar:SetHeight(22) end
+        bar:Update()
+    elseif not modern and skin.original then
+        local original = skin.original
+        bar.fill:SetTexture(original.fillTexture)
+        bar.cutoutTexture = original.cutoutTexture
+        bar.bg:SetVertexColor(unpack(original.background))
+        bar:SetHeight(original.height)
+        bar:Update()
+        skin.original = nil
+    end
 end
 
 local function CaptureAnchors(region)
@@ -265,14 +271,7 @@ function Style:Apply(selected)
             entry.outline:Hide()
         end
         for i = 1, table.getn(entry.bars) do
-            local bar = entry.bars[i]
-            if modern then
-                bar.matte:Show()
-                bar.outline:Show()
-            else
-                bar.matte:Hide()
-                bar.outline:Hide()
-            end
+            ApplyBarSkin(entry.bars[i], modern)
         end
     end
     self:UpdateClassification()
@@ -281,7 +280,7 @@ end
 function DFRL.InitUnitFrameSkins(unit, health, resource)
     if unit ~= "player" and unit ~= "target" then return false end
     if Style.entries[unit] then return true end
-    if not health then return false end
+    if not health or not health.fill or not health.bg then return false end
     local owner = unit == "player" and _G.PlayerFrame or _G.TargetFrame
     if not owner then return false end
 
@@ -289,7 +288,9 @@ function DFRL.InitUnitFrameSkins(unit, health, resource)
 
     local panel, outline, classLabel = MakeRectangle(unit, owner, health, resource)
     local bars = {MakeBarSkin(health, true)}
-    if resource then table.insert(bars, MakeBarSkin(resource, false)) end
+    if resource and resource.fill and resource.bg then
+        table.insert(bars, MakeBarSkin(resource, false))
+    end
     Style.entries[unit] = {
         owner = owner, health = health, resource = resource,
         ornate = ornate, panel = panel, outline = outline,

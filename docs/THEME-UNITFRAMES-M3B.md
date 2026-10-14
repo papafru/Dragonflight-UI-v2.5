@@ -58,3 +58,40 @@ handler. We have **not** overridden those aura APIs solely for visual polish.
 
 Do not merge until the user's real 1.18 client verifies both portrait removal
 and PvP icon placement.
+
+
+## Flat status bars and single-border correction
+
+The latest client screenshot showed two distinct problems:
+
+1. The original `healthDF2.tga` texture is beveled and glossy, inconsistent with the clean Modern Dark rectangle.
+2. The existing 30px health bar and resource bar (beginning 24px below
+   the health top) **overlap by 6px**. Individual modern outlines created
+   stacked horizontal lines and crossed the resource-bar text.
+
+In **Modern Dark only**, the renderer now:
+
+- Replaces the existing `bar.fill` texture with stock
+  `Interface\\Buttons\\WHITE8X8`, producing flat status-bar fills.
+- Preserves the original dynamic `SetFillColor()` behavior for
+  hostile/friendly/player class color and resource types; existing status-bar
+  animation logic remains responsible for updates.
+- Uses a charcoal tint on the existing `bar.bg` rather than
+  layering another backdrop and inner border.
+- Adjusts the health bar from 30px to 22px; the resource bar retains 12px.
+  This resolves the 6px overlap and leaves a 2px gap.
+- Removes the redundant per-bar outline frames. There is only one rectangular
+  outer border and one divider below the header.
+- Temporarily switches `bar.cutoutTexture` to the flat texture,
+  so new damage-cutout animations match the modern fill.
+- Captures and restores each bar's original fill texture, cutout texture,
+  background color/alpha and height when returning to Fantasy/Existing
+  Appearance, calling the existing `bar:Update()` to refresh fill
+  size without changing health or power values.
+
+The CI unit tests assert geometry, exact restoration, preservation of dynamic
+reaction colors, target resource visibility, and the absence of duplicated
+artwork allocations during repeated theme switching.
+
+**Important:** Modern Dark flat-bar styling must be confirmed visually in
+the actual WoW 1.18 client before merging PR #4.

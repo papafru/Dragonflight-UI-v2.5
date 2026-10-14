@@ -36,6 +36,12 @@ function methods:ClearAllPoints() self.points = {} end
 function methods:GetNumPoints() return #self.points end
 function methods:GetPoint(i) return unpack(self.points[i]) end
 function methods:SetTexture(p) self.texture = p end
+function methods:GetTexture() return self.texture end
+function methods:GetVertexColor() return unpack(self.vertexColor) end
+function methods:Update()
+    self.updateCalls = (self.updateCalls or 0) + 1
+    if self.fill then self.fill:SetHeight(self:GetHeight()) end
+end
 function methods:SetVertexColor(...) self.vertexColor = {...} end
 function methods:SetTextColor(...) self.textColor = {...} end
 function methods:GetTextColor() return unpack(self.textColor) end
@@ -110,16 +116,24 @@ TargetLevelText = Region("FontString", TargetFrame)
 TargetLevelText:SetPoint("CENTER", TargetFrame, "CENTER", -102, 25)
 TargetLevelText:SetTextColor(.81, .71, .18)
 
-local function Bar()
+local function Bar(isHealth)
     local b = Region("StatusFrame")
     b.level = 8
     b.value = 35
-    b.fillTexture = "existing-color-dynamic-health-art"
+    b:SetHeight(isHealth and 30 or 12)
+    b.fill = b:CreateTexture(nil, "ARTWORK")
+    b.fill:SetTexture(isHealth and "original-beveled-health.tga" or "original-mana.tga")
+    b.fill:SetVertexColor(isHealth and 0 or 1, isHealth and 1 or 0, 0, 1)
+    b.bg = b:CreateTexture(nil, "BACKGROUND")
+    b.bg:SetTexture("Interface\\Buttons\\WHITE8X8")
+    b.bg:SetVertexColor(0, 0, 0, .5)
+    b.cutoutTexture = b.fill:GetTexture()
     b.mouseHandler = function() return "preserved" end
+    b:Update()
     return b
 end
-local playerHealth, playerMana = Bar(), Bar()
-local targetHealth, targetMana = Bar(), Bar()
+local playerHealth, playerMana = Bar(true), Bar(false)
+local targetHealth, targetMana = Bar(true), Bar(false)
 targetMana:Hide()
 local savedHandler = targetHealth.mouseHandler
 local savedAlpha = {
@@ -171,8 +185,8 @@ eq(DFRL.InitUnitFrameSkins("target", targetHealth, targetMana), true, "Target in
 eq(DFRL.InitUnitFrameSkins("player", playerHealth, playerMana), true, "Player initialization")
 eq(style.listening, true, "Listener connected")
 eq(#listeners, 1, "One theme listener for both unit frames")
-eq(numFrames, 8, "One rectangular outline and two bar outlines per unit, plus two watchers")
-eq(numTextures, 32, "16 textures per unit: panel + five lines + two bar mats + eight lines")
+eq(numFrames, 4, "One outer rectangular border per unit plus two watchers")
+eq(numTextures, 20, "Four original bar regions plus six rectangle textures per unit")
 eq(style.entries.player.modern, false, "Player starts unchanged")
 eq(style.entries.target.modern, false, "Target starts unchanged")
 
@@ -189,13 +203,13 @@ for _,id in ipairs({"player", "target"}) do
     eq(e.outline.shown, false, "Outer border initially hidden")
     eq(e.outline.mouseEnabled, false, "Outer border cannot intercept clicks")
     eq(e.outline.points[1][2], e.panel, "Border follows panel")
-    eq(#e.bars, 2, "Exactly two decorative status-bar treatments")
-    for _,bar in ipairs(e.bars) do
-        eq(bar.matte.layer, "BACKGROUND", "Graphite bar backing uses background")
-        eq(bar.matte.shown, false, "Graphite bar backing starts hidden")
-        eq(bar.outline.shown, false, "Bar outline starts hidden")
-        eq(bar.outline.mouseEnabled, false, "Bar decoration is mouse-inert")
-        eq(bar.outline.allPoints, bar.bar, "Bar decoration follows existing geometry")
+    eq(#e.bars, 2, "Both existing status bars have reversible skin state")
+    for index,skin in ipairs(e.bars) do
+        eq(skin.isHealth, index == 1, "Health/resource type recorded")
+        eq(skin.original, nil, "No original-state capture until theme changes")
+        eq(skin.bar:GetHeight(), index == 1 and 30 or 12, "Legacy geometry untouched in Fantasy")
+        eq(skin.bar.fill:GetTexture(), index == 1 and "original-beveled-health.tga" or "original-mana.tga", "Original textures untouched")
+        eq(skin.bar.bg:GetVertexColor(), 0, "Original status background untouched")
     end
 end
 eq(TargetFrame.portrait:GetAlpha(), savedAlpha.target[3], "Original target portrait initially unchanged")
@@ -230,13 +244,24 @@ for _,id in ipairs({"player", "target"}) do
     eq(icon:GetHeight(), 34, "PvP icon compact height")
     eq(icon:GetPoint(1), "TOPLEFT", "PvP icon anchored to rectangle")
     eq(select(2, icon:GetPoint(1)), e.panel, "PvP icon follows current panel")
-    for _,bar in ipairs(e.bars) do
-        eq(bar.matte.shown, true, "Modern matte visible")
-        eq(bar.outline.shown, true, "Modern thin outline visible")
+    for i,skin in ipairs(e.bars) do
+        local bar = skin.bar
+        eq(bar.fill:GetTexture(), "Interface\\Buttons\\WHITE8X8", "Flat fill replaces beveled artwork")
+        eq(bar.cutoutTexture, "Interface\\Buttons\\WHITE8X8", "Damage cutouts match flat theme")
+        eq(bar:GetHeight(), i == 1 and 22 or 12, "22px health / 12px resource with 2px separation")
+        eq(bar.bg:GetVertexColor(), .035, "Graphite replaces semitransparent black background")
+        eq(bar.bg.vertexColor[4], .98, "Modern bar background opacity")
+        eq(skin.original ~= nil, true, "Original bar texture and geometry captured")
+        eq(bar.fill:GetHeight(), bar:GetHeight(), "Bar fill geometry recalculated after resize")
     end
 end
 eq(targetMana:IsShown(), false, "Hidden target mana remains hidden during style")
 eq(playerHealth.value, 35, "Health value unchanged")
+eq(playerHealth.fill.vertexColor[2], 1, "Reaction/class fill color remains controlled by bar")
+-- Target reaction can change while Modern is active. Never hardcode status color.
+targetHealth.fill:SetVertexColor(.8, .22, .1, 1)
+eq(targetHealth.fill.vertexColor[1], .8, "Health reaction recolor remains possible in Modern")
+eq(targetHealth.fill:GetTexture(), "Interface\\Buttons\\WHITE8X8", "Dynamic recolor doesn't restore old texture")
 eq(targetHealth.mouseHandler, savedHandler, "Click handling unchanged")
 eq(PlayerFrame.name.textColor[1], .87, "Modern title color")
 eq(TargetFrame.portrait.shown, false, "Modern explicitly hides portrait")
@@ -287,9 +312,16 @@ for _,id in ipairs({"player", "target"}) do
     eq(e.modern, false, "Original mode restored")
     eq(e.panel.shown, false, "Modern rectangle hidden when returning to Fantasy")
     eq(e.outline.shown, false, "Modern border hidden when returning to Fantasy")
-    for _,bar in ipairs(e.bars) do
-        eq(bar.matte.shown, false, "Custom matte removed from Fantasy")
-        eq(bar.outline.shown, false, "Custom thin outline removed from Fantasy")
+    for index,skin in ipairs(e.bars) do
+        local bar = skin.bar
+        local originalTexture = index == 1 and "original-beveled-health.tga" or "original-mana.tga"
+        eq(bar.fill:GetTexture(), originalTexture, "Exact original beveled fill restored")
+        eq(bar.cutoutTexture, originalTexture, "Original damage cutout texture restored")
+        eq(bar:GetHeight(), index == 1 and 30 or 12, "Original bar height restored")
+        eq(bar.bg:GetVertexColor(), 0, "Original bar background red restored")
+        eq(bar.bg.vertexColor[4], .5, "Original background alpha restored")
+        eq(skin.original, nil, "Per-bar saved skin state cleared")
+        eq(bar.fill:GetHeight(), bar:GetHeight(), "Restored fill geometry recalculated")
     end
     for i,region in ipairs(e.ornate) do
         local saved = originalRegions[region]
@@ -320,6 +352,8 @@ eq(TargetPortrait:IsShown(), true, "Named target portrait reappears in Fantasy")
 eq(TargetPortrait:GetAlpha(), .61, "Named target portrait alpha restored")
 eq(PlayerPortrait:IsShown(), true, "Named player portrait reappears in Fantasy")
 eq(targetMana.shown, false, "Hidden resource frame never forced visible")
+eq(targetHealth.fill.vertexColor[1], .8, "Reaction color survives return to Fantasy")
+eq(targetHealth.fill.vertexColor[2], .22, "Reaction color remains unchanged by styling")
 eq(numFrames, originalFrames, "No new objects during switch")
 
 Switch("modern")
@@ -329,6 +363,8 @@ eq(style.entries.target.panel.shown, false, "Existing Appearance hides rectangul
 eq(PlayerFrame.portrait:GetAlpha(), .83, "Existing Appearance portrait alpha restored")
 eq(PlayerPortrait:IsShown(), true, "Existing Appearance restores actual portrait global")
 eq(PlayerPVPIcon:GetWidth(), 64, "Existing Appearance preserves PvP marker size")
+eq(playerHealth.fill:GetTexture(), "original-beveled-health.tga", "Existing Appearance restores original fill")
+eq(playerHealth:GetHeight(), 30, "Existing Appearance restores original height")
 eq(DFRL.InitUnitFrameSkins("player", playerHealth, playerMana), true, "Idempotent init")
 eq(#listeners, 1, "No duplicate theme listener")
 eq(numFrames, originalFrames, "No duplicated frames from initialization")
