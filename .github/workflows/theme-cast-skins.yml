@@ -1,0 +1,26 @@
+name: fruUI Modern Cast Bars
+on:
+  pull_request:
+  push:
+    branches:
+      - feature/theme-castbars-m3c1
+jobs:
+  cast-skins:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua 5.1
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+      - name: Lua syntax
+        run: |
+          luac5.1 -p modules/cast/cast.lua modules/cast/target.lua modules/cast/skins.lua
+      - name: Regression suite
+        run: |
+          lua5.1 tests/theme_foundation.lua
+          lua5.1 tests/theme_selection.lua
+          lua5.1 tests/theme_action_skins.lua
+          lua5.1 tests/theme_unit_skins.lua
+          lua5.1 tests/editmode_keybind.lua
+          lua5.1 tests/editmode_preview.lua
+      - name: Cast skin behavior
+        run: lua5.1 tests/theme_cast_skins.lua

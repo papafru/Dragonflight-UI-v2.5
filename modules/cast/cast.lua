@@ -714,4 +714,6 @@ DFRL:NewMod("Cast", 1, function()
 
     -- execute  callbacks
     DFRL:NewCallbacks("Cast", callbacks)
+    -- Theme skin registers after the Cast renderer and all settings exist.
+    if DFRL.InitCastbarSkin then DFRL.InitCastbarSkin("player", Setup) end
 end)

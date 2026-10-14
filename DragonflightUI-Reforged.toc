@@ -27,6 +27,7 @@ modules\bars\range.lua
 modules\bars\hoverbind.lua
 modules\cast\cast.lua
 modules\cast\target.lua
+modules\cast\skins.lua
 modules\chat\chat.lua
 modules\bags\bags.lua
 modules\map\map.lua

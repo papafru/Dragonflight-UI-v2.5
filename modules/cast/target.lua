@@ -534,4 +534,7 @@ DFRL:NewMod("TargetCastbar", 1, function()
     end
 
     DFRL:NewCallbacks("TargetCastbar", callbacks)
+    -- Target casting is optional; sharing the visual skin does not change
+    -- polling frequency, ShaguTweaks readiness or target anchoring.
+    if DFRL.InitCastbarSkin then DFRL.InitCastbarSkin("target", Setup) end
 end)
