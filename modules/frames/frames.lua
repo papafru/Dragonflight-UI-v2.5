@@ -137,9 +137,9 @@ DFRL:NewMod("Frames", 2, function()
             for i = 1, table.getn(self.overlays) do
                 local entry = self.overlays[i]
                 if CanShowOverlay(entry) then
-                    entry.overlay:Show()
+                    if not entry.overlay:IsShown() then entry.overlay:Show() end
                 else
-                    entry.overlay:Hide()
+                    if entry.overlay:IsShown() then entry.overlay:Hide() end
                 end
             end
         end
