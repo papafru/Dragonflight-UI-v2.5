@@ -1,0 +1,26 @@
+name: fruUI Action Highlight Settings
+on:
+  pull_request:
+  push:
+    branches:
+      - fix/action-highlight-visibility-black
+jobs:
+  action-highlight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua 5.1
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+      - name: Lua syntax
+        run: |
+          luac5.1 -p modules/bars/bars.lua modules/bars/skins.lua modules/gui/tools.lua modules/gui/elem.lua core/theme.lua
+      - name: Previous regression suites
+        run: |
+          lua5.1 tests/theme_foundation.lua
+          lua5.1 tests/theme_selection.lua
+          lua5.1 tests/theme_action_skins.lua
+          lua5.1 tests/theme_unit_skins.lua
+          lua5.1 tests/editmode_keybind.lua
+          lua5.1 tests/editmode_preview.lua
+      - name: Color palette and themed toggle
+        run: lua5.1 tests/action_highlight_controls.lua

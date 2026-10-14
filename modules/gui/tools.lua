@@ -582,9 +582,10 @@ function DFRL.tools.CreateColour(parent, name, moduleName, key)
         {1.0, 0.82, 0.0},     -- gold
         {1.0, 0.9, 0.5},      -- light gold
         {0.8, 0.65, 0.0},     -- exotic gold (bronze)
+        {0.0, 0.0, 0.0},      -- black (31; older saved choices unchanged)
     }
 
-    local COLOR_COUNT = 30
+    local COLOR_COUNT = table.getn(BASIC_COLORS)
 
     local slider = CreateFrame("Slider", name, parent)
     slider:SetWidth(136)
@@ -618,12 +619,15 @@ function DFRL.tools.CreateColour(parent, name, moduleName, key)
 
     slider.moduleName = moduleName
     slider.configKey = key
+    slider.BASIC_COLORS = BASIC_COLORS
+    slider.COLOR_COUNT = COLOR_COUNT
 
     local colorSwatch = parent:CreateTexture(nil, "ARTWORK")
     colorSwatch:SetWidth(20)
     colorSwatch:SetHeight(20)
     colorSwatch:SetPoint("LEFT", valueText, "RIGHT", 5, 0)
     colorSwatch:SetTexture("Interface\\ChatFrame\\ChatFrameColorSwatch")
+    slider.colorSwatch = colorSwatch
 
     local currentValue = DFRL:GetTempDB(moduleName, key)
     local initialIndex = 1

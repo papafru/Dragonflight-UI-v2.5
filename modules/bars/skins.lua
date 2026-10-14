@@ -61,12 +61,39 @@ function Skins:Tint(color)
         or type(color[2]) ~= "number" or type(color[3]) ~= "number" then
         color = {.50, .72, .88}
     end
+    local visible = not DFRL.GetTempDB
+        or DFRL:GetTempDB("Bars", "highlightShow") ~= false
+    -- Keep the rectangular Modern border, but use graphite rather than
+    -- the highlight color when the hover effect is switched off.
+    local tint = visible and color or {.27, .39, .48}
     for i = 1, table.getn(self.entries) do
         local entry = self.entries[i]
         for j = 1, table.getn(entry.lines) do
-            entry.lines[j]:SetVertexColor(color[1], color[2], color[3], .95)
+            entry.lines[j]:SetVertexColor(tint[1], tint[2], tint[3], .95)
         end
     end
+end
+
+function Skins:RefreshHighlights()
+    -- NewCallbacks replaces the Bars handler; update the actual hover
+    -- textures as well as Modern Dark's decorative border tint.
+    local color = DFRL:GetTempDB("Bars", "highlightColor") or {1, .82, 0}
+    if type(color) ~= "table" or type(color[1]) ~= "number"
+        or type(color[2]) ~= "number" or type(color[3]) ~= "number" then
+        color = {1, .82, 0}
+    end
+    local visible = DFRL:GetTempDB("Bars", "highlightShow") ~= false
+    local black = color[1] == 0 and color[2] == 0 and color[3] == 0
+    for i = 1, table.getn(self.entries) do
+        local button = self.entries[i].button
+        local highlight = button.GetHighlightTexture and button:GetHighlightTexture()
+        if highlight then
+            highlight:SetVertexColor(color[1], color[2], color[3])
+            highlight:SetBlendMode(black and "BLEND" or "ADD")
+            highlight:SetAlpha(visible and 1 or 0)
+        end
+    end
+    self:Tint(color)
 end
 
 function Skins:Apply(themeId)
@@ -127,10 +154,11 @@ function DFRL.InitActionButtonSkins(buttonTypes)
     if DFRL.theme then
         DFRL.theme:AddListener(function(selected) Skins:Apply(selected) end)
     end
-    -- Reuse existing highlightColor appearance property; every user override
-    -- is still stored by the Milestone 1 theme engine.
+    -- These callbacks replace the initial Bars callbacks; update both the
+    -- native highlights and the reversible Modern border tint.
     DFRL:NewCallbacks("Bars", {
-        highlightColor = function(value) Skins:Tint(value) end,
+        highlightColor = function() Skins:RefreshHighlights() end,
+        highlightShow = function() Skins:RefreshHighlights() end,
     })
     Skins:Apply(DFRL.theme and DFRL.theme:GetSelected())
     return true
