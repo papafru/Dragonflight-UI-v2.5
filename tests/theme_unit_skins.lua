@@ -1,155 +1,260 @@
--- Milestone 3B: stock WoW 1.12-compatible player/target visual test.
--- Run: lua5.1 tests/theme_unit_skins.lua
+-- fruUI Milestone 3B: rectangular, portrait-free unit frame smoke tests.
+-- Run with Lua 5.1: lua5.1 tests/theme_unit_skins.lua
 local checks = 0
-local function eq(actual, expected, note)
+local function eq(actual, expected, message)
     checks = checks + 1
     if actual ~= expected then
-        error(note .. " expected " .. tostring(expected) .. ", got " .. tostring(actual))
+        error(message .. " expected " .. tostring(expected) .. ", got " .. tostring(actual))
     end
 end
-if not table.getn then table.getn = function(x) return #x end end
-local createdFrames = 0
-local createdTextures = 0
-local frameMethods = {}
-local function region(kind, parent)
-    local obj={kind=kind,parent=parent,shown=true,children={},scripts={},level=5}
-    setmetatable(obj,{__index=frameMethods})
-    if parent then table.insert(parent.children,obj) end
-    return obj
-end
-function frameMethods:SetAllPoints(parent) self.allPoints=parent end
-function frameMethods:SetFrameLevel(v) self.level=v end
-function frameMethods:GetFrameLevel() return self.level end
-function frameMethods:EnableMouse(v) self.mouseEnabled=v end
-function frameMethods:Show() self.shown=true end
-function frameMethods:Hide() self.shown=false end
-function frameMethods:IsShown() return self.shown end
-function frameMethods:SetTexture(texture) self.texture=texture end
-function frameMethods:SetPoint(...) table.insert(self.points,{...}) end
-function frameMethods:SetVertexColor(...) self.color={...} end
-function frameMethods:SetWidth(v) self.width=v end
-function frameMethods:SetHeight(v) self.height=v end
-function frameMethods:SetValue(v) self.value=v end
-function frameMethods:CreateTexture(_, layer, forbiddenSublevel)
-    eq(forbiddenSublevel,nil,"Do not use unsupported 1.12 texture sublevels")
-    local o=region("Texture",self)
-    o.layer=layer
-    o.points={}
-    createdTextures=createdTextures+1
+if not table.getn then table.getn = function(t) return #t end end
+
+local numFrames, numTextures = 0, 0
+local methods = {}
+local function Region(kind, parent)
+    local o = {kind = kind, parent = parent, shown = true, alpha = 1,
+        children = {}, points = {}, level = 5, textColor = {1, .8, 0}, scripts = {}}
+    setmetatable(o, {__index = methods})
+    if parent then table.insert(parent.children, o) end
     return o
 end
-function CreateFrame(kind, name, parent)
-    local obj=region(kind,parent)
-    createdFrames=createdFrames+1
+function methods:Show() self.shown = true end
+function methods:Hide() self.shown = false end
+function methods:IsShown() return self.shown end
+function methods:SetAlpha(a) self.alpha = a end
+function methods:GetAlpha() return self.alpha end
+function methods:SetFrameLevel(n) self.level = n end
+function methods:GetFrameLevel() return self.level end
+function methods:EnableMouse(b) self.mouseEnabled = b end
+function methods:SetWidth(w) self.width = w end
+function methods:SetHeight(h) self.height = h end
+function methods:SetAllPoints(parent) self.allPoints = parent end
+function methods:SetPoint(...) table.insert(self.points, {...}) end
+function methods:ClearAllPoints() self.points = {} end
+function methods:GetNumPoints() return #self.points end
+function methods:GetPoint(i) return unpack(self.points[i]) end
+function methods:SetTexture(p) self.texture = p end
+function methods:SetVertexColor(...) self.vertexColor = {...} end
+function methods:SetTextColor(...) self.textColor = {...} end
+function methods:GetTextColor() return unpack(self.textColor) end
+function methods:SetJustifyH(v) self.justify = v end
+function methods:GetJustifyH() return self.justify end
+function methods:SetText(t) self.text = t end
+function methods:SetValue(v) self.value = v end
+function methods:SetScript(name, fn) self.scripts[name] = fn end
+function methods:RegisterEvent(name) self.events = self.events or {}; self.events[name] = true end
+function methods:CreateTexture(name, layer, template)
+    eq(template, nil, "1.12 CreateTexture has no numeric sublevel")
+    local obj = Region("Texture", self)
+    obj.layer = layer
+    numTextures = numTextures + 1
     return obj
 end
+function methods:CreateFontString(_, layer, font)
+    local obj = Region("FontString", self)
+    obj.layer = layer
+    obj.font = font
+    return obj
+end
+function CreateFrame(kind, _, parent)
+    numFrames = numFrames + 1
+    return Region(kind, parent)
+end
+
+local function Owner(name, portraitAlpha, artAlpha, bgAlpha)
+    local frame = Region("Frame")
+    frame.name = Region("FontString", frame)
+    frame.name:SetPoint("LEFT", frame, "LEFT", 85, 25)
+    frame.name:SetTextColor(.95, .65, .20)
+    frame.name:SetJustifyH(name == "target" and "RIGHT" or "LEFT")
+    frame.portrait = Region("Model", frame)
+    frame.portrait:SetAlpha(portraitAlpha)
+    local art = Region("Texture", frame)
+    art:SetAlpha(artAlpha)
+    local background = Region("Texture", frame)
+    background:SetAlpha(bgAlpha)
+    return frame, art, background
+end
+local playerArt, playerBG, targetArt, targetBG
+PlayerFrame, playerArt, playerBG = Owner("player", .83, .78, .4)
+TargetFrame, targetArt, targetBG = Owner("target", .74, .55, .23)
+PlayerFrameTexture, PlayerFrameBackground = playerArt, playerBG
+TargetFrameTexture, TargetFrameBackground = targetArt, targetBG
+PlayerLevelText = Region("FontString", PlayerFrame)
+PlayerLevelText:SetPoint("RIGHT", PlayerFrame, "RIGHT", -14, 25)
+PlayerLevelText:SetTextColor(.92, .69, .11)
+TargetLevelText = Region("FontString", TargetFrame)
+TargetLevelText:SetPoint("CENTER", TargetFrame, "CENTER", -102, 25)
+TargetLevelText:SetTextColor(.81, .71, .18)
+
 local function Bar()
-    local obj=region("StatusBar",nil)
-    obj.points={}
-    obj.level=8
-    obj.value=30
-    obj.fancyTexture="stock-specific-class-health-texture"
-    return obj
+    local b = Region("StatusFrame")
+    b.level = 8
+    b.value = 35
+    b.fillTexture = "existing-color-dynamic-health-art"
+    b.mouseHandler = function() return "preserved" end
+    return b
 end
-local healthPlayer, manaPlayer=Bar(),Bar()
-local healthTarget, manaTarget=Bar(),Bar()
-local originalValue=healthPlayer.value
-local originalTexture=healthPlayer.fancyTexture
-local userCallHandler=function() return "original" end
-healthPlayer.scripts.OnMouseDown=userCallHandler
-manaTarget:Hide()
-local current,events=nil,{}
-_G.DFRL={
-    theme={
-        GetSelected=function() return current end,
-        AddListener=function(_,cb) table.insert(events,cb) end,
-    },
-    themeUI={palette={modern={accent={.43,.72,.90}}}},
+local playerHealth, playerMana = Bar(), Bar()
+local targetHealth, targetMana = Bar(), Bar()
+targetMana:Hide()
+local savedHandler = targetHealth.mouseHandler
+local savedAlpha = {
+    player = {PlayerFrameTexture:GetAlpha(), PlayerFrameBackground:GetAlpha(), PlayerFrame.portrait:GetAlpha()},
+    target = {TargetFrameTexture:GetAlpha(), TargetFrameBackground:GetAlpha(), TargetFrame.portrait:GetAlpha()},
 }
-local root=string.match(arg[0], "^(.*[/\\])tests[/\\]") or ""
-assert(loadfile(root.."modules/unit/skins.lua"))()
-local style=DFRL.unitFrameSkins
-eq(style.listening,false,"Renderer not active at source load")
-eq(next(style.entries),nil,"No orphan skin objects")
-eq(DFRL.InitUnitFrameSkins("party",healthPlayer,manaPlayer),false,"Do not skin unrequested unit")
-eq(DFRL.InitUnitFrameSkins("player",nil,manaPlayer),false,"Reject missing health bar")
-eq(createdFrames,0,"Missing/disabled module creates no decoration")
-eq(DFRL.InitUnitFrameSkins("target",healthTarget,manaTarget),true,"Target can initialize before player")
-eq(DFRL.InitUnitFrameSkins("player",healthPlayer,manaPlayer),true,"Player initialization after world event")
-eq(#events,1,"Exactly one theme event listener")
-eq(style.listening,true,"Listener registered")
-eq(style.entries.player~=nil,true,"Player registered")
-eq(style.entries.target~=nil,true,"Target registered")
-eq(#style.entries.player.bars,2,"Player has health and resource skins")
-eq(#style.entries.target.bars,2,"Target has health and resource skins")
-eq(createdFrames,4,"One decorative frame per status bar")
-eq(createdTextures,20,"Five graphic textures per status bar")
-for _,unit in pairs({"player","target"}) do
-    local entry=style.entries[unit]
-    for idx,skin in ipairs(entry.bars) do
-        eq(skin.isHealth,idx==1,"Correct health/resource role")
-        eq(skin.outline.parent,skin.bar,"Decorations belong to status bar")
-        eq(skin.outline.allPoints,skin.bar,"Outline follows status bar geometry")
-        eq(skin.outline.level,skin.bar.level+1,"Outline is just above statusbar")
-        eq(skin.outline.mouseEnabled,false,"Decorations cannot catch clicks")
-        eq(skin.outline.shown,false,"No modern artwork before selecting theme")
-        eq(skin.matte.shown,false,"No dark matte on original Fantasy style")
-        eq(skin.matte.parent,skin.bar,"Dark backdrop lives inside status bar")
-        eq(skin.matte.layer,"BACKGROUND","Dark matte behind the bar fill")
-        eq(skin.matte.allPoints,skin.bar,"Dark matte follows same dimensions")
-        eq(#skin.lines,4,"Four lightweight outline segments")
-        for j,line in ipairs(skin.lines) do
-            eq(line.parent,skin.outline,"Line belongs to the inert outline frame")
-            eq(line.layer,"OVERLAY","Supported legacy draw layer")
-            eq(line.texture,"Interface\\Buttons\\WHITE8X8","Built-in neutral texture")
-            eq(#line.points,2,"Outline texture is anchored at two edges")
-            eq(j<3 and line.height or line.width,1,"One pixel border")
-        end
+local savedAnchors = {
+    playerName = {PlayerFrame.name:GetPoint(1)},
+    targetName = {TargetFrame.name:GetPoint(1)},
+    playerLevel = {PlayerLevelText:GetPoint(1)},
+    targetLevel = {TargetLevelText:GetPoint(1)},
+}
+local oldColor = {PlayerFrame.name:GetTextColor()}
+local selected, listeners = nil, {}
+local classification = "normal"
+local hasTarget = true
+function UnitClassification(unit) eq(unit, "target", "Classification unit"); return classification end
+function UnitExists(unit) eq(unit, "target", "Exists unit"); return hasTarget end
+_G.DFRL = {
+    themeUI = {palette = {modern = {accent = {.43, .72, .90}}}},
+    theme = {
+        GetSelected = function() return selected end,
+        AddListener = function(_, listener) table.insert(listeners, listener) end,
+    },
+}
+local root = string.match(arg[0], "^(.*[/\\])tests[/\\]") or ""
+assert(loadfile(root .. "modules/unit/skins.lua"))()
+local style = DFRL.unitFrameSkins
+eq(style.listening, false, "No premature initialization")
+eq(next(style.entries), nil, "No renderer before module setup")
+eq(DFRL.InitUnitFrameSkins("pet", playerHealth, playerMana), false, "No unsupported unit")
+eq(DFRL.InitUnitFrameSkins("player", nil, playerMana), false, "No health frame")
+eq(numFrames, 0, "No frames on invalid init")
+
+-- Target can initialize before Player. This is how these modules initialize.
+eq(DFRL.InitUnitFrameSkins("target", targetHealth, targetMana), true, "Target initialization")
+eq(DFRL.InitUnitFrameSkins("player", playerHealth, playerMana), true, "Player initialization")
+eq(style.listening, true, "Listener connected")
+eq(#listeners, 1, "One theme listener for both unit frames")
+eq(numFrames, 7, "One rectangular outline and two bar outlines per unit, plus target watcher")
+eq(numTextures, 32, "16 textures per unit: panel + five lines + two bar mats + eight lines")
+eq(style.entries.player.modern, false, "Player starts unchanged")
+eq(style.entries.target.modern, false, "Target starts unchanged")
+
+for _,id in ipairs({"player", "target"}) do
+    local e = style.entries[id]
+    eq(e.owner, id == "player" and PlayerFrame or TargetFrame, "Rectangular panel parent")
+    eq(e.panel.parent, e.owner, "Panel belongs to unit frame")
+    eq(e.panel.layer, "BACKGROUND", "Panel drawn behind health fill")
+    eq(e.panel.shown, false, "Fantasy does not display rectangular backdrop")
+    eq(e.panel.points[1][1], "TOPLEFT", "Panel start anchored to health")
+    eq(e.panel.points[1][2], e.health, "Panel start uses health bar")
+    eq(e.panel.points[2][1], "BOTTOMRIGHT", "Panel bottom anchored to resource")
+    eq(e.panel.points[2][2], e.resource, "Panel bottom uses mana bar")
+    eq(e.outline.shown, false, "Outer border initially hidden")
+    eq(e.outline.mouseEnabled, false, "Outer border cannot intercept clicks")
+    eq(e.outline.points[1][2], e.panel, "Border follows panel")
+    eq(#e.bars, 2, "Exactly two decorative status-bar treatments")
+    for _,bar in ipairs(e.bars) do
+        eq(bar.matte.layer, "BACKGROUND", "Graphite bar backing uses background")
+        eq(bar.matte.shown, false, "Graphite bar backing starts hidden")
+        eq(bar.outline.shown, false, "Bar outline starts hidden")
+        eq(bar.outline.mouseEnabled, false, "Bar decoration is mouse-inert")
+        eq(bar.outline.allPoints, bar.bar, "Bar decoration follows existing geometry")
     end
 end
-local function switch(id)
-    current=id
-    for _,cb in ipairs(events) do cb(id) end
+eq(TargetFrame.portrait:GetAlpha(), savedAlpha.target[3], "Original target portrait initially unchanged")
+eq(TargetFrameTexture:GetAlpha(), savedAlpha.target[1], "Original target art unchanged")
+eq(targetMana:IsShown(), false, "Existing hidden target mana remains hidden")
+
+local function Switch(id)
+    selected = id
+    for _,listener in ipairs(listeners) do listener(id) end
 end
-switch("modern")
-for _,item in pairs(style.entries) do
-    for _,skin in ipairs(item.bars) do
-        eq(skin.outline.shown,true,"Modern style shows outline")
-        eq(skin.matte.shown,true,"Modern style shows dark backing")
-        eq(skin.lines[1].color[4],.95,"Modern border opacity")
-        local expectedR=skin.isHealth and .43 or .43*.55
-        eq(skin.lines[1].color[1],expectedR,"Health/resource outlines share theme palette")
+Switch("modern")
+for _,id in ipairs({"player", "target"}) do
+    local e = style.entries[id]
+    eq(e.modern, true, "Modern state active")
+    eq(e.panel.shown, true, "Modern panel is visible")
+    eq(e.outline.shown, true, "Modern outline visible")
+    eq(e.name.points[1][1], "TOPLEFT", "Unit name in rectangular header")
+    eq(e.name.justify, "LEFT", "Modern name uses left-aligned text")
+    eq(e.name.points[1][2], e.health, "Unit name placed above same health bar")
+    eq(e.level.points[1][1], "TOPRIGHT", "Unit level in rectangular header")
+    eq(e.level.points[1][2], e.health, "Unit level relative to same health bar")
+    for _,original in ipairs(e.ornate) do
+        eq(original:GetAlpha(), 0, "Circular/ornate originals transparent in Modern")
+    end
+    for _,bar in ipairs(e.bars) do
+        eq(bar.matte.shown, true, "Modern matte visible")
+        eq(bar.outline.shown, true, "Modern thin outline visible")
     end
 end
-eq(healthPlayer.value,originalValue,"Does not change actual health")
-eq(healthPlayer.fancyTexture,originalTexture,"Does not replace status textures")
-eq(healthPlayer.scripts.OnMouseDown,userCallHandler,"Does not replace statusbar handlers")
-eq(manaTarget.shown,false,"Invisible target resource bar remains hidden")
-local beforeFrameCount,beforeTexCount=createdFrames,createdTextures
-switch("modern")
-eq(createdFrames,beforeFrameCount,"Repeat modern doesn't create frames")
-eq(createdTextures,beforeTexCount,"Repeat modern doesn't create textures")
-switch("fantasy")
-for _,item in pairs(style.entries) do
-    for _,skin in ipairs(item.bars) do
-        eq(skin.outline.shown,false,"Fantasy hides new outlines")
-        eq(skin.matte.shown,false,"Fantasy hides new dark backing")
+eq(targetMana:IsShown(), false, "Hidden target mana remains hidden during style")
+eq(playerHealth.value, 35, "Health value unchanged")
+eq(targetHealth.mouseHandler, savedHandler, "Click handling unchanged")
+eq(PlayerFrame.name.textColor[1], .87, "Modern title color")
+eq(TargetFrame.portrait.shown, true, "Portrait hidden via reversible alpha, not destructive Hide()")
+
+-- The original target border still receives classification updates under the
+-- transparent layer; returning to Fantasy must reveal the latest texture.
+TargetFrameTexture:SetTexture("new-elite-frame-art")
+classification = "rareelite"
+style.targetWatcher.scripts.OnEvent()
+eq(style.entries.target.classLabel.text, "RARE ELITE", "Rare elite classification stays visible")
+eq(style.entries.target.classLabel.shown, true, "Rare elite badge visible")
+classification = "worldboss"
+style.targetWatcher.scripts.OnEvent()
+eq(style.entries.target.classLabel.text, "BOSS", "World boss classification displayed")
+hasTarget = false
+style.targetWatcher.scripts.OnEvent()
+eq(style.entries.target.classLabel.shown, false, "Badge hides when target disappears")
+hasTarget = true
+classification = "elite"
+style.targetWatcher.scripts.OnEvent()
+eq(style.entries.target.classLabel.text, "ELITE", "Elite classification displayed")
+eq(style.entries.target.classLabel.shown, true, "Elite badge visible")
+classification = "normal"
+style.targetWatcher.scripts.OnEvent()
+eq(style.entries.target.classLabel.shown, false, "Normal mobs have no badge")
+
+local originalFrames, originalTextures = numFrames, numTextures
+Switch("modern")
+eq(numFrames, originalFrames, "Repeat Modern selection creates no frames")
+eq(numTextures, originalTextures, "Repeat Modern selection creates no textures")
+Switch("fantasy")
+for _,id in ipairs({"player", "target"}) do
+    local e = style.entries[id]
+    eq(e.modern, false, "Original mode restored")
+    eq(e.panel.shown, false, "Modern rectangle hidden when returning to Fantasy")
+    eq(e.outline.shown, false, "Modern border hidden when returning to Fantasy")
+    for _,bar in ipairs(e.bars) do
+        eq(bar.matte.shown, false, "Custom matte removed from Fantasy")
+        eq(bar.outline.shown, false, "Custom thin outline removed from Fantasy")
+    end
+    for i,region in ipairs(e.ornate) do
+        eq(region:GetAlpha(), savedAlpha[id][i], "Exact original alpha preserved")
     end
 end
-eq(DFRL.InitUnitFrameSkins("player",healthPlayer,manaPlayer),true,"Idempotent player registration")
-eq(#events,1,"No duplicate listener after repeat registration")
-eq(createdFrames,beforeFrameCount,"No duplicate unit decorations")
-switch("modern")
-switch(nil)
-for _,item in pairs(style.entries) do
-    for _,skin in ipairs(item.bars) do
-        eq(skin.outline.shown,false,"Existing Appearance hides Modern artwork")
-        eq(skin.matte.shown,false,"Existing Appearance hides Modern mattes")
-    end
-end
-eq(manaTarget.shown,false,"Style switching doesn't force hidden bars visible")
-local petTest=Bar()
-eq(DFRL.InitUnitFrameSkins("player",healthPlayer,petTest),true,"Existing skin isn't replaced")
-eq(#style.entries.player.bars,2,"No orphan third resource bar")
-eq(DFRL.modules,nil,"Skin renderer does not register a new module")
-print("PASS milestone 3B unit skins: "..checks.." assertions")
+eq(TargetFrameTexture.texture, "new-elite-frame-art", "Dynamic elite artwork survives theme switching")
+eq(PlayerFrame.name.points[1][1], savedAnchors.playerName[1], "Player name restored anchor")
+eq(TargetFrame.name.points[1][1], savedAnchors.targetName[1], "Target name restored anchor")
+eq(TargetFrame.name.justify, "RIGHT", "Original target name justification restored")
+eq(PlayerLevelText.points[1][1], savedAnchors.playerLevel[1], "Player level restored anchor")
+eq(TargetLevelText.points[1][1], savedAnchors.targetLevel[1], "Target level restored anchor")
+eq(PlayerFrame.name.textColor[1], oldColor[1], "Player name original color restored")
+eq(TargetFrame.portrait:GetAlpha(), .74, "Target 3D portrait original alpha restored")
+eq(targetMana.shown, false, "Hidden resource frame never forced visible")
+eq(numFrames, originalFrames, "No new objects during switch")
+
+Switch("modern")
+Switch(nil)
+eq(style.entries.player.panel.shown, false, "Existing Appearance restores Fantasy visuals")
+eq(style.entries.target.panel.shown, false, "Existing Appearance hides rectangular art")
+eq(PlayerFrame.portrait:GetAlpha(), .83, "Existing Appearance portrait alpha restored")
+eq(DFRL.InitUnitFrameSkins("player", playerHealth, playerMana), true, "Idempotent init")
+eq(#listeners, 1, "No duplicate theme listener")
+eq(numFrames, originalFrames, "No duplicated frames from initialization")
+eq(numTextures, originalTextures, "No duplicated textures from initialization")
+eq(DFRL.modules, nil, "No extra Modules grid toggle")
+print("PASS Milestone 3B rectangular unit frames: " .. checks .. " assertions")
