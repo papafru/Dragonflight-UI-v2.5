@@ -21,6 +21,9 @@ Bind.active = false
 Bind.hovered = nil
 Bind.overlays = {}
 Bind.refreshTimer = 0
+Bind.journal = {}
+Bind.journalOrder = {}
+Bind.pending = false
 
 local function Say(message)
     if DEFAULT_CHAT_FRAME then
@@ -63,18 +66,73 @@ local function DisplayKey(key)
 end
 
 local function BindingsSaved()
-    if type(SaveBindings) ~= "function" then
-        Say("Bindings changed, but SaveBindings is unavailable. Save from the game's Key Bindings menu.")
-        return
-    end
+    if type(SaveBindings) ~= "function" then return false end
     local which = 1
     if type(GetCurrentBindingSet) == "function" then
         which = GetCurrentBindingSet() or 1
     end
-    local ok = pcall(SaveBindings, which)
-    if not ok then
-        Say("Could not save bindings; save them from the game's Key Bindings menu.")
+    local ok, saved = pcall(SaveBindings, which)
+    -- Classic variants may return no result on success; false or 0 are errors.
+    return ok and saved ~= false and saved ~= 0
+end
+
+-- Snapshot every touched key BEFORE its first mutation, including unrelated
+-- actions displaced by another binding. Nothing is persisted until Save.
+local function RememberKey(key)
+    if not key or key == "" or Bind.journal[key] ~= nil then return end
+    local previous = GetBindingAction(key)
+    Bind.journal[key] = previous and previous ~= "" and previous or false
+    table.insert(Bind.journalOrder, key)
+end
+
+local function RecordChange(keys, newKey)
+    for i = 1, table.getn(keys) do RememberKey(keys[i]) end
+    RememberKey(newKey)
+end
+
+function Bind:Cancel()
+    if not self.active then return end
+    -- Remove every key touched this session first, then put the original
+    -- command mapping back. This also undoes conflicting reassignment swaps.
+    local ok = true
+    for i = 1, table.getn(self.journalOrder) do
+        if not SetBinding(self.journalOrder[i]) then ok = false end
     end
+    for i = 1, table.getn(self.journalOrder) do
+        local key = self.journalOrder[i]
+        local command = self.journal[key]
+        if command and not SetBinding(key, command) then ok = false end
+    end
+    if not ok then
+        self:UpdateStatus("Rollback failed. Check bindings before leaving.")
+        Say("Could not completely restore keys; review bindings.")
+        return false
+    end
+    self.journal = {}
+    self.journalOrder = {}
+    self.pending = false
+    self:Close()
+    Say("Changes discarded.")
+    return true
+end
+
+function Bind:SaveChanges()
+    if not self.active then return false end
+    if self.pending and not BindingsSaved() then
+        self:UpdateStatus("Could not save bindings. Changes are still pending.")
+        return false
+    end
+    self.journal = {}
+    self.journalOrder = {}
+    self.pending = false
+    self:Close()
+    Say("Changes saved.")
+    return true
+end
+
+function Bind:MarkPending()
+    self.pending = true
+    if self.saveButton then self.saveButton:Enable() end
 end
 
 local function RestoreKeys(command, oldKeys)
@@ -90,9 +148,8 @@ local function ReplaceKey(command, newKey)
     -- A key already assigned to this action is a harmless no-op.
     if previousCommand == command then return true end
 
-    -- Replace this action's old keys rather than leaving invisible extras.
-    -- Preserve an unrelated command previously assigned to the new key so
-    -- it can be restored if the client rejects the binding.
+    -- Capture displaced keys/commands before live preview mutations.
+    RecordChange(oldKeys, newKey)
     for i = 1, table.getn(oldKeys) do
         if oldKeys[i] and not SetBinding(oldKeys[i]) then
             RestoreKeys(command, oldKeys)
@@ -110,19 +167,21 @@ local function ReplaceKey(command, newKey)
         return false
     end
 
-    BindingsSaved()
+    Bind:MarkPending()
     return true
 end
 
 local function ClearKeys(command)
     local oldKeys = CurrentKeys(command)
+    if table.getn(oldKeys) == 0 then return true end
+    RecordChange(oldKeys)
     for i = 1, table.getn(oldKeys) do
         if oldKeys[i] and not SetBinding(oldKeys[i]) then
             RestoreKeys(command, oldKeys)
             return false
         end
     end
-    BindingsSaved()
+    Bind:MarkPending()
     return true
 end
 
@@ -178,23 +237,26 @@ function Bind:HandleKey(raw)
     if not self.active then return end
     local key = string.upper(tostring(raw or ""))
     if key == "ESCAPE" then
-        if self.hovered then
-            if ClearKeys(self.hovered.command) then
-                self:UpdateLabels()
-                self:UpdateStatus("Cleared: " .. self.hovered.target:GetName())
-            else
-                self:UpdateStatus("Could not clear this binding.")
-            end
-        else
-            self:Stop()
-        end
+        -- A legacy client may also fire ToggleGameMenu for this same key.
+        -- The guard expires on the next rendered frame if no toggle occurs.
+        self.escapeGuard = true
+        if self.escapeGuardFrame then self.escapeGuardFrame:Show() end
+        self:Cancel() -- always rollback, including when hovering a button
         return
     end
     if not self.hovered or IsModifier(key) then return end
-    if key == "LEFTBUTTON" or key == "BUTTON1" then return end
-    if key == "RIGHTBUTTON" then
-        key = "BUTTON2"
-    elseif key == "MIDDLEBUTTON" then
+    if key == "LEFTBUTTON" or key == "BUTTON1"
+        or key == "RIGHTBUTTON" or key == "BUTTON2" then return end
+    if key == "DELETE" or key == "BACKSPACE" then
+        if ClearKeys(self.hovered.command) then
+            self:UpdateLabels()
+            self:UpdateStatus("Cleared (unsaved): " .. self.hovered.target:GetName())
+        else
+            self:UpdateStatus("Could not clear this binding.")
+        end
+        return
+    end
+    if key == "MIDDLEBUTTON" then
         key = "BUTTON3"
     elseif string.find(key, "^BUTTON%d+$") then
         -- Button4, Button5 and any extra buttons reported by the client.
@@ -217,10 +279,10 @@ function Bind:CreateUI()
     local panel = CreateFrame("Frame", "DFRL_MouseoverKeybindPanel", UIParent)
     panel:SetFrameStrata("FULLSCREEN_DIALOG")
     panel:SetFrameLevel(50)
-    panel:SetWidth(540)
-    panel:SetHeight(80)
+    panel:SetWidth(600)
+    panel:SetHeight(103)
     panel:SetPoint("TOP", UIParent, "TOP", 0, -88)
-    panel:EnableMouse(false)
+    panel:EnableMouse(true)
     panel:SetBackdrop({
         bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -236,20 +298,28 @@ function Bind:CreateUI()
 
     local status = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     status:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
-    status:SetWidth(490)
+    status:SetWidth(416)
     status:SetJustifyH("LEFT")
     status:SetText("Hover an action button, then press a key or mouse button.")
 
     local help = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     help:SetPoint("TOPLEFT", status, "BOTTOMLEFT", 0, -5)
-    help:SetText("ESC = clear hovered  |  ESC off button = exit  |  Left click excluded")
+    help:SetText("ESC = cancel  |  Delete = clear hovered  |  Left/Right click excluded")
 
-    local close = CreateFrame("Button", "DFRL_MouseoverKeybindExit", panel, "UIPanelButtonTemplate")
-    close:SetWidth(50)
-    close:SetHeight(22)
-    close:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -9, -9)
-    close:SetText("Exit")
-    close:SetScript("OnClick", function() Bind:Stop() end)
+    local save = CreateFrame("Button", "DFRL_MouseoverKeybindSave", panel, "UIPanelButtonTemplate")
+    save:SetWidth(124)
+    save:SetHeight(25)
+    save:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -11, -12)
+    save:SetText("Save Changes")
+    save:SetScript("OnClick", function() Bind:SaveChanges() end)
+    save:Disable()
+
+    local cancel = CreateFrame("Button", "DFRL_MouseoverKeybindExit", panel, "UIPanelButtonTemplate")
+    cancel:SetWidth(124)
+    cancel:SetHeight(23)
+    cancel:SetPoint("TOPRIGHT", save, "BOTTOMRIGHT", 0, -5)
+    cancel:SetText("Cancel (ESC)")
+    cancel:SetScript("OnClick", function() Bind:Cancel() end)
 
     -- Mouse-disabled keyboard capture does not obscure the per-button hover
     -- targets; all action clicks are blocked by the visible overlays.
@@ -263,8 +333,17 @@ function Bind:CreateUI()
     end)
     keyboard:Hide()
 
+    local guard = CreateFrame("Frame", nil, UIParent)
+    guard:Hide()
+    guard:SetScript("OnUpdate", function()
+        Bind.escapeGuard = false
+        guard:Hide()
+    end)
+
+    self.escapeGuardFrame = guard
     self.panel = panel
     self.statusText = status
+    self.saveButton = save
     self.keyboard = keyboard
     panel:Hide()
 end
@@ -334,6 +413,10 @@ function Bind:Start()
         return
     end
     self.active = true
+    self.journal = {}
+    self.journalOrder = {}
+    self.pending = false
+    if self.saveButton then self.saveButton:Disable() end
     self:Select(nil)
     self:UpdateLabels()
     self.panel:Show()
@@ -348,7 +431,7 @@ function Bind:Start()
             Bind:RefreshVisibility()
         end
     end)
-    Say("Enabled. Hover a button and press a key (or mouse button). ESC clears; Exit closes.")
+    Say("Enabled. Save Changes confirms, ESC cancels, Delete clears; right-click excluded.")
 end
 
 function Bind:RefreshVisibility()
@@ -378,7 +461,12 @@ function Bind:RefreshVisibility()
     end
 end
 
+-- All non-confirmed exit routes (ESC, /kb, Edit Mode) cancel changes.
 function Bind:Stop()
+    return self:Cancel()
+end
+
+function Bind:Close()
     if not self.active then return end
     self.active = false
     self:SetScript("OnUpdate", nil)
@@ -391,7 +479,6 @@ function Bind:Stop()
     for i = 1, table.getn(self.overlays) do
         self.overlays[i]:Hide()
     end
-    Say("Disabled.")
 end
 
 SLASH_DFRL_KEYBIND1 = "/kb"

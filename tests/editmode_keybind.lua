@@ -1,0 +1,180 @@
+-- fruUI regression: transactional mouseover bindings, Lua 5.1 client mock.
+if not table.getn then table.getn=function(t) return #t end end
+local n=0
+local function same(actual,expected,reason)
+  n=n+1
+  if actual~=expected then error(reason..": "..tostring(actual).." != "..tostring(expected)) end
+end
+local frames={}
+local methods={}
+local function frame(name,parent)
+  local f={name=name,parent=parent,scripts={},children={},shown=true,enabled=true,alpha=1}
+  setmetatable(f,{__index=methods})
+  if parent then table.insert(parent.children,f) end
+  if name then _G[name]=f end
+  table.insert(frames,f)
+  return f
+end
+function CreateFrame(kind,name,parent) return frame(name,parent) end
+UIParent=frame("UIParent")
+function methods:RegisterEvent(s) self.events=self.events or {};self.events[s]=true end
+function methods:SetScript(k,f) self.scripts[k]=f end
+function methods:GetScript(k) return self.scripts[k] end
+function methods:SetPoint(...) self.point={...} end
+function methods:SetAllPoints(other) self.allPoints=other end
+function methods:SetWidth(x) self.width=x end
+function methods:SetHeight(x) self.height=x end
+function methods:SetFrameStrata(x) self.strata=x end
+function methods:SetFrameLevel(x) self.level=x end
+function methods:EnableMouse(x) self.mouse=x end
+function methods:EnableMouseWheel(x) self.wheel=x end
+function methods:EnableKeyboard(x) self.keyboard=x end
+function methods:SetBackdrop(x) self.backdrop=x end
+function methods:SetBackdropColor(...) end
+function methods:SetBackdropBorderColor(...) end
+function methods:Hide() self.shown=false end
+function methods:Show() self.shown=true end
+function methods:IsShown() return self.shown end
+function methods:IsVisible() return self.shown and (not self.parent or self.parent:IsVisible()) end
+function methods:GetEffectiveAlpha() return self.alpha end
+function methods:IsMouseEnabled() return self.mouse~=false end
+function methods:GetName() return self.name end
+function methods:SetText(t) self.text=t end
+function methods:SetTextColor(...) end
+function methods:SetJustifyH(x) self.justify=x end
+function methods:SetVertexColor(...) self.color={...} end
+function methods:Enable() self.enabled=true end
+function methods:Disable() self.enabled=false end
+function methods:CreateFontString()
+  return frame(nil,self)
+end
+function methods:CreateTexture()
+  return frame(nil,self)
+end
+
+local map={ ["1"]="ACTIONBUTTON1",["2"]="ACTIONBUTTON2",["J"]="EXTRAACTION",["ALT-3"]="ACTIONBUTTON1" }
+local disk={}
+local writes=0
+local saveFailure=false
+for k,v in pairs(map) do disk[k]=v end
+function GetBindingAction(key) return map[key] or "" end
+function GetBindingKey(command)
+  local keys={}
+  -- fixed order for two-key binding restoration checks
+  for _,key in ipairs({"1","ALT-3","2","J","K","E","F","MOUSEWHEELUP","BUTTON3","SHIFT-K"}) do
+    if map[key]==command then table.insert(keys,key) end
+  end
+  return unpack(keys)
+end
+function SetBinding(key,command)
+  if not key or key=="" then return false end
+  map[key]=command
+  return true
+end
+function GetCurrentBindingSet() return 2 end
+function SaveBindings(which)
+  same(which,2,"Save uses original binding set")
+  writes=writes+1
+  if saveFailure then return false end
+  disk={}
+  for k,v in pairs(map) do disk[k]=v end
+  return 1
+end
+function IsAltKeyDown() return false end
+function IsShiftKeyDown() return false end
+function IsControlKeyDown() return false end
+DEFAULT_CHAT_FRAME={AddMessage=function()end}
+SlashCmdList={}
+_G.DFRL={}
+frame("ActionButton1",UIParent)
+frame("ActionButton2",UIParent)
+local root=string.match(arg[0],"^(.*[/\\])tests[/\\]") or ""
+assert(loadfile(root.."modules/bars/hoverbind.lua"))()
+local bind=DFRL.hoverbind
+local function selectButton(idx)
+  for _,o in ipairs(bind.overlays) do
+    if o.target:GetName()=="ActionButton"..idx then bind:Select(o);return o end
+  end
+  error("Missing overlay: "..idx)
+end
+same(bind.active,false,"not active on load")
+bind:Start()
+same(bind.active,true,"/kb starts")
+same(bind.saveButton.enabled,false,"save starts disabled")
+same(writes,0,"start never writes bindings")
+local a=selectButton(1)
+bind:HandleKey("RIGHTBUTTON")
+bind:HandleKey("BUTTON2")
+bind:HandleKey("LEFTBUTTON")
+bind:HandleKey("BUTTON1")
+same(bind.pending,false,"left and right click never register")
+same(map["1"],"ACTIONBUTTON1","right click does not change old key")
+same(map["BUTTON2"],nil,"right-click never assigned even with overlay selected")
+bind:HandleKey("J")
+same(map["J"],"ACTIONBUTTON1","live preview displaces unrelated action")
+same(map["1"],nil,"old primary binding removed from live preview")
+same(map["ALT-3"],nil,"old secondary binding removed from live preview")
+same(bind.pending,true,"unsaved state set")
+same(bind.saveButton.enabled,true,"save button enabled")
+same(writes,0,"key assignment remains unsaved")
+selectButton(2)
+bind:HandleKey("K")
+same(map["K"],"ACTIONBUTTON2","second action preview assigned")
+same(map["2"],nil,"second action old key gone")
+selectButton(1)
+bind:HandleKey("ESCAPE")
+same(bind.active,false,"escape cancels even while hovered")
+same(writes,0,"escape never calls SaveBindings")
+same(map["1"],"ACTIONBUTTON1","original primary recovered")
+same(map["ALT-3"],"ACTIONBUTTON1","original alternate recovered")
+same(map["2"],"ACTIONBUTTON2","other action recovered")
+same(map["J"],"EXTRAACTION","displaced unrelated command recovered")
+same(map["K"],nil,"session created key removed")
+same(bind.escapeGuard,true,"same-frame menu escape guard set")
+bind.escapeGuardFrame.scripts.OnUpdate()
+same(bind.escapeGuard,false,"escape guard expires next frame")
+bind:Start()
+selectButton(1)
+bind:HandleKey("DELETE")
+same(map["1"],nil,"Delete clears hovered command as preview")
+same(bind.pending,true,"clear is unsaved")
+bind:Cancel()
+same(map["1"],"ACTIONBUTTON1","cancel undoes clear")
+same(map["ALT-3"],"ACTIONBUTTON1","cancel undoes alternate clear")
+bind:Start()
+selectButton(1)
+bind:HandleKey("E")
+same(bind:SaveChanges(),true,"Save Changes completes")
+same(bind.active,false,"save closes mode")
+same(writes,1,"explicit SaveBindings called exactly once")
+same(disk["E"],"ACTIONBUTTON1","persisted assignment is new key")
+same(disk["J"],"EXTRAACTION","unrelated key not persisted incorrectly")
+same(disk["1"],nil,"old binding removed when confirmed")
+bind:Start()
+selectButton(2)
+bind:HandleKey("F")
+saveFailure=true
+same(bind:SaveChanges(),false,"failed SaveBindings keeps session active")
+same(bind.active,true,"save failure does not discard edit journal")
+same(bind.pending,true,"save failure still pending")
+saveFailure=false
+bind:Stop()
+same(map["F"],nil,"Cancel via Stop restores failed-save preview")
+same(map["2"],"ACTIONBUTTON2","Stop restores original binding")
+same(writes,2,"failed Save attempted once, never silently retried")
+-- Edit Mode activation calls Stop(), which also cancels.
+bind:Start()
+selectButton(1)
+bind:HandleKey("BUTTON3")
+same(map["BUTTON3"],"ACTIONBUTTON1","middle click can be bound")
+bind:Stop()
+same(map["BUTTON3"],nil,"handoff cancel restores middle mouse")
+same(map["E"],"ACTIONBUTTON1","previous saved session remains intact")
+-- Cancel button callback uses same rollback path.
+bind:Start()
+selectButton(1)
+bind:HandleKey("MOUSEWHEELUP")
+DFRL_MouseoverKeybindExit.scripts.OnClick()
+same(map["MOUSEWHEELUP"],nil,"Cancel button undoes wheel binding")
+same(bind.active,false,"Cancel button ends mode")
+print("PASS transactional keybinds: "..n.." assertions")

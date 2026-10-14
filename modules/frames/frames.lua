@@ -108,8 +108,22 @@ DFRL:NewMod("Frames", 2, function()
             return true
         end
 
+        -- The Escape menu clears the active target in the stock client.
+        -- Edit Mode must offer movable placeholders even when neither target
+        -- exists. Reassert visibility because FrameXML can hide the frames
+        -- after a target-change event; never change the actual unit selection.
+        function Edit:RefreshPreviewFrames()
+            for i = 1, table.getn(self.restores) do
+                local state = self.restores[i]
+                if state.unit and state.frame and not state.frame:IsShown() then
+                    state.frame:Show()
+                end
+            end
+        end
+
         function Edit:RefreshOverlays()
             if not self.active then return end
+            self:RefreshPreviewFrames()
             for i = 1, table.getn(self.overlays) do
                 local entry = self.overlays[i]
                 if CanShowOverlay(entry) then
@@ -130,9 +144,14 @@ DFRL:NewMod("Frames", 2, function()
             Edit:RefreshOverlays()
         end)
 
-        local function TemporarilyShow(frame)
+        local function TemporarilyShow(frame, unit)
             if not frame then return end
-            table.insert(Edit.restores, { frame = frame, shown = frame:IsShown() })
+            table.insert(Edit.restores, {
+                frame = frame,
+                shown = frame:IsShown(),
+                unit = unit,
+                unitExisted = unit and UnitExists(unit) or nil,
+            })
             frame:Show()
         end
 
@@ -143,6 +162,10 @@ DFRL:NewMod("Frames", 2, function()
             self.active = true
             DFRL.activeScripts["FrameControlScript"] = true
             self.restores = {}
+            -- Target must be shown before Target of Target, since the legacy
+            -- client may anchor or parent the second frame to the first.
+            TemporarilyShow(TargetFrame, "target")
+            TemporarilyShow(TargetofTargetFrame, "targettarget")
             TemporarilyShow(DFRL.castbar)
             if DFRL.castbar then TemporarilyShow(DFRL.castbar.bar) end
             if DFRL.castbar and DFRL.castbar.bar then DFRL.castbar.bar:Hide() end
@@ -175,7 +198,14 @@ DFRL:NewMod("Frames", 2, function()
             grid:Hide()
             for i = table.getn(self.restores), 1, -1 do
                 local state = self.restores[i]
-                if state.shown then state.frame:Show() else state.frame:Hide() end
+                local show = state.shown
+                if state.unit then
+                    local existsNow = UnitExists(state.unit)
+                    -- If targeting changed during Edit Mode, respect the
+                    -- actual current unit rather than a stale entry state.
+                    if existsNow ~= state.unitExisted then show = existsNow end
+                end
+                if show then state.frame:Show() else state.frame:Hide() end
             end
             self.restores = {}
             DFRL.activeScripts["FrameControlScript"] = false
