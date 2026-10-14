@@ -43,3 +43,11 @@ The user's recording shows the Target of Target editor overlay alternating visib
 - The edit visibility poll doesn't re-show these unit frames, and repeated native hides don't affect the independent editor handles.
 - Normal unit logic, skins, targeting, other registered edit overlays and saved frame positions remain intact.
 - The mocked regression now checks eight repeated native hide/refresh cycles, persistent target and ToT handles, real target acquisition/loss, proxy movements and click-without-move stability.
+
+## Remaining flicker beside the minimap
+
+The subsequent in-game test confirmed that Target of Target no longer flickers, but a second native-visibility-driven element to the **left of the minimap** still flashes. The original video does not expose a readable label for that element; the relevant registered candidates are Blizzard buff buttons, temporary enchant buttons, and quest/timer anchors.
+
+The same UIParent-owned independent editor-handle approach now covers `BuffButton0`, `BuffButton8`, `BuffButton16`, `BuffButton32`, `TempEnchant1`, `QuestTimerFrame`, and the addon-owned `DFRL.questframe`. Their native gameplay frames are not artificially re-shown by Edit Mode. The UI overlay remains visible and draggable, and moving it updates the underlying frame anchor through the already-tested delta transfer. Regular action bars, the special castbar handling and the existing Target/ToT placeholders are unchanged.
+
+The extended Lua 5.1 mock tests verify repeated native hide updates, zero unexpected native Show calls, stable visible editor handles, temporary-enchant positioning and correct cleanup after leaving Edit Mode. Real-client footage is still required to verify the exact icon's flicker is gone before merging.

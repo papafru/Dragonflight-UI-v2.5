@@ -93,6 +93,18 @@ PartyMemberFrame1=frame("PartyMemberFrame1",UIParent)
 PartyMemberFrame1:Hide()
 BuffButton32=frame("BuffButton32",UIParent)
 BuffButton32:Hide()
+BuffButton0=frame("BuffButton0",UIParent)
+BuffButton0:Hide()
+BuffButton8=frame("BuffButton8",UIParent)
+BuffButton8:Hide()
+BuffButton16=frame("BuffButton16",UIParent)
+BuffButton16:Hide()
+TempEnchant1=frame("TempEnchant1",UIParent)
+TempEnchant1:Hide()
+QuestTimerFrame=frame("QuestTimerFrame",UIParent)
+QuestTimerFrame:Hide()
+DFRL.questframe=frame("DFRLQuestTracker",UIParent)
+DFRL.questframe:Hide()
 DFRL.netStatsFrame=frame("DFRLNetStats",UIParent)
 DFRL.netStatsFrame:Hide()
 DFRL.castbar=frame("DFRLCastbar",UIParent)
@@ -122,14 +134,26 @@ eq(TargetofTargetFrame.shows or 0,0,"Never force nonexistent ToT to show")
 eq(DFRL.mainBar:IsShown(),true,"Later optional action bar exposed in Edit Mode")
 eq(MultiBarRight:IsShown(),true,"Hidden vertical action bar exposed")
 eq(PartyMemberFrame1:IsShown(),true,"Hidden party frame exposed")
-eq(BuffButton32:IsShown(),true,"Hidden buff anchor exposed beyond holes in list")
+eq(BuffButton32:IsShown(),false,"Native buff icon is not forced visible")
+eq(BuffButton0:IsShown(),false,"First buff group remains under native visibility")
+eq(BuffButton8:IsShown(),false,"Second buff group remains under native visibility")
+eq(BuffButton16:IsShown(),false,"Third buff group remains under native visibility")
+eq(TempEnchant1:IsShown(),false,"Temporary enchant stays native-hidden")
+eq(QuestTimerFrame:IsShown(),false,"Quest timer stays native-hidden")
+eq(DFRL.questframe:IsShown(),false,"Quest tracker stays native-hidden")
 eq(DFRL.netStatsFrame:IsShown(),true,"Net stats anchor exposed")
 eq(DFRL.castbar:IsShown(),true,"Cast bar anchor exposed")
 eq(DFRL.castbar.bar:IsShown(),false,"Castbar fill remains intentionally hidden")
 eq(DFRL.targetCastbar:IsShown(),false,"Auto-positioned enemy castbar is excluded")
 eq(TargetofTargetFrame:IsVisible(),false,"ToT remains naturally hidden with no unit")
 local overlayTarget,overlayToT,overlayBuff
+local stableWidgets={}
+local nativeManaged={BuffButton0,BuffButton8,BuffButton16,BuffButton32,
+  TempEnchant1,QuestTimerFrame,DFRL.questframe}
 for _,e in ipairs(edit.overlays) do
+ for i,w in ipairs(nativeManaged) do
+  if e.frame==w then stableWidgets[i]=e.overlay end
+ end
  if e.frame==TargetFrame then overlayTarget=e.overlay end
  if e.frame==TargetofTargetFrame then overlayToT=e.overlay end
  if e.frame==BuffButton32 then overlayBuff=e.overlay end
@@ -137,12 +161,23 @@ end
 eq(overlayTarget~=nil,true,"Target registered movable")
 eq(overlayToT~=nil,true,"ToT registered movable")
 eq(overlayBuff~=nil,true,"Later sparse frame registered movable")
+for i,w in ipairs(nativeManaged) do
+ local overlay=stableWidgets[i]
+ eq(overlay~=nil,true,"State-managed widget has a movable editor handle")
+ eq(overlay.parent,UIParent,"State-managed overlay does not inherit native Hide")
+ eq(overlay:IsShown(),true,"Independent hidden widget preview is visible")
+ eq(w:IsShown(),false,"Edit Mode never fabricates native widget content")
+end
 eq(overlayTarget:IsShown(),true,"Target proxy overlay visible without a unit")
 eq(overlayToT:IsShown(),true,"ToT proxy overlay visible without a unit")
 eq(overlayTarget.parent,UIParent,"Target proxy independent of native frame visibility")
 eq(overlayToT.parent,UIParent,"ToT proxy independent of native frame visibility")
 local totShows=overlayToT.shows or 0
 local targetShows=overlayTarget.shows or 0
+local stableShowCounts={}
+for i,overlay in ipairs(stableWidgets) do
+ stableShowCounts[i]=overlay.shows or 0
+end
 eq(overlayTarget.nameText.text,"Target Frame","Target has readable name")
 eq(overlayToT.nameText.text,"Target of Target","ToT has readable name")
 eq(overlayBuff.nameText.text,"Buff Group 32","Buff anchor has readable name")
@@ -165,20 +200,30 @@ TargetofTargetFrame:Hide()
 BuffButton32:Hide()
 DFRL.castbar.bar:Hide()
 for i=1,8 do
-  edit:RefreshOverlays() -- native client repeatedly hides nonexistent units
+  -- Simulate FrameXML/auras/quest handlers continually hiding content.
+  for _,w in ipairs(nativeManaged) do w:Hide() end
+  edit:RefreshOverlays()
   eq(TargetFrame:IsShown(),false,"Editor never resurrects nonexistent target")
   eq(TargetofTargetFrame:IsShown(),false,"Editor never resurrects nonexistent ToT")
   eq(overlayTarget:IsShown(),true,"Target proxy remains stable")
   eq(overlayToT:IsShown(),true,"ToT proxy remains stable")
+  for j,w in ipairs(nativeManaged) do
+    eq(w:IsShown(),false,"Editor never shows native-controlled widget")
+    eq(stableWidgets[j]:IsShown(),true,"Independent widget drag handle stays visible")
+  end
 end
 eq(overlayTarget.shows or 0,targetShows,"Target proxy is not recreated/flickered")
 eq(overlayToT.shows or 0,totShows,"ToT proxy is not recreated/flickered")
+for i,w in ipairs(nativeManaged) do
+ eq(w.shows or 0,0,"Native widget receives no Show calls")
+ eq(stableWidgets[i].shows or 0,stableShowCounts[i],"Widget handle never flickers")
+end
 eq(TargetFrame.shows or 0,0,"Target unit never receives extra Show calls")
 eq(TargetofTargetFrame.shows or 0,0,"ToT never receives extra Show calls")
 eq(overlayTarget:IsShown(),true,"Target drag overlay returns after native hide")
 eq(overlayToT:IsShown(),true,"ToT overlay returns after native hide")
-eq(BuffButton32:IsShown(),true,"Hidden extra frame reappears during Edit Mode")
-eq(overlayBuff:IsShown(),true,"Extra overlay reappears")
+eq(BuffButton32:IsShown(),false,"Native buff icon remains hidden during Edit Mode")
+eq(overlayBuff:IsShown(),true,"Independent buff drag handle remains visible")
 eq(DFRL.castbar.bar:IsShown(),false,"Intentional cast fill suppression survives refresh")
 -- A target can be moved even though there is no actual target unit.
 overlayTarget.scripts.OnMouseDown()
@@ -200,13 +245,26 @@ overlayToT.scripts.OnMouseUp()
 eq(overlayToT.moving,false,"ToT proxy mouse up completes drag")
 eq(DFRL_FRAMEPOS.TargetofTargetFrame.x,100,"ToT click without movement has no position jump")
 eq(DFRL_FRAMEPOS.TargetofTargetFrame.y,300,"ToT click without movement has no vertical jump")
+local enchOverlay=stableWidgets[5]
+local enchX,enchY=TempEnchant1:GetLeft(),TempEnchant1:GetTop()
+enchOverlay.scripts.OnMouseDown()
+enchOverlay.left=enchOverlay:GetLeft()+18
+enchOverlay.top=enchOverlay:GetTop()-11
+enchOverlay.scripts.OnMouseUp()
+eq(DFRL_FRAMEPOS.TempEnchant1.x,enchX+18,"Enchant proxy drag saves real frame X")
+eq(DFRL_FRAMEPOS.TempEnchant1.y,enchY-11,"Enchant proxy drag saves real frame Y")
+eq(enchOverlay:IsShown(),true,"Enchant handle remains visible after moving")
 edit:Stop()
 eq(TargetFrame:IsShown(),false,"Target hidden after edit with no unit")
 eq(TargetofTargetFrame:IsShown(),false,"ToT hidden after edit with no unit")
 eq(DFRL.mainBar:IsShown(),false,"Extra action bar restored to hidden")
 eq(MultiBarRight:IsShown(),false,"Vertical action bar restored to hidden")
 eq(PartyMemberFrame1:IsShown(),false,"Party frame restored to hidden")
-eq(BuffButton32:IsShown(),false,"Buff frame restored to hidden")
+eq(BuffButton32:IsShown(),false,"Buff frame remains hidden after editor exit")
+for i,w in ipairs(nativeManaged) do
+ eq(w:IsShown(),false,"Native state-managed widgets remain hidden after Edit Mode")
+ eq(stableWidgets[i]:IsShown(),false,"Independent widgets hidden after Edit Mode")
+end
 eq(DFRL.netStatsFrame:IsShown(),false,"Net stats restored to hidden")
 eq(DFRL.castbar:IsShown(),false,"Cast bar restored to hidden")
 eq(DFRL.castbar.bar:IsShown(),true,"Cast fill original own visibility restored")

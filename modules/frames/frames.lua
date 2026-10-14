@@ -101,11 +101,15 @@ DFRL:NewMod("Frames", 2, function()
             line:SetPoint("BOTTOMRIGHT", grid, "TOPRIGHT", 0, -i * hStep - .5)
         end
 
-        local function IsUnitProxy(frame)
-            -- FrameXML owns target/targettarget visibility. Edit Mode must
-            -- display movable placeholders, not repeatedly force those
-            -- gameplay frames to Show() with no actual unit.
+        local function NeedsStablePreview(frame)
+            -- Native/unit/auras/quest systems own their visibility; forcing
+            -- these real frames to Show while their data is absent leads to
+            -- flickering. The editor owns only independent drag handles.
             return frame == TargetFrame or frame == TargetofTargetFrame
+                or frame == BuffButton0 or frame == BuffButton8
+                or frame == BuffButton16 or frame == BuffButton32
+                or frame == TempEnchant1 or frame == QuestTimerFrame
+                or frame == DFRL.questframe
         end
 
         local function CanShowOverlay(entry)
@@ -123,7 +127,7 @@ DFRL:NewMod("Frames", 2, function()
         function Edit:RefreshPreviewFrames()
             for i = 1, table.getn(self.restores) do
                 local state = self.restores[i]
-                if state.frame and not IsUnitProxy(state.frame)
+                if state.frame and not NeedsStablePreview(state.frame)
                     and state.frame ~= (DFRL.castbar and DFRL.castbar.bar)
                     and not state.frame:IsShown() then
                     state.frame:Show()
@@ -182,14 +186,14 @@ DFRL:NewMod("Frames", 2, function()
             -- Edit Mode must expose every registered movable frame, not only
             -- frames currently displayed by the client. Optional frames may
             -- be absent; their absence must not truncate the registered list.
-            -- Target/ToT use independent editor proxies instead of
-            -- showing nonexistent units. All other movable frames retain
-            -- their earlier preview and restoration behavior.
+            -- Units, buffs, enchants and quest widgets use independent drag
+            -- previews. Other frames retain their earlier temporary reveal
+            -- and restoration behavior.
             for i = 1, table.getn(self.overlays) do
                 local frame = self.overlays[i].frame
                 local autoTargetCast = frame == DFRL.targetCastbar
                     and DFRL:GetTempDB("TargetCastbar", "enemyCastbarAutoPosition")
-                if not autoTargetCast and not IsUnitProxy(frame) then
+                if not autoTargetCast and not NeedsStablePreview(frame) then
                     TemporarilyShow(frame)
                 end
             end
@@ -315,13 +319,12 @@ DFRL:NewMod("Frames", 2, function()
 
         local function MakeFrameMovable(frame)
             if not frame then return end
-            local proxy = IsUnitProxy(frame)
+            local proxy = NeedsStablePreview(frame)
             frame:EnableMouse(true)
             frame:SetMovable(true)
 
-            -- Unit-frame visibility is controlled by FrameXML and Mini.
-            -- Parenting a drag handle to those frames inherits their Hide(),
-            -- producing the 60fps ToT flash captured in the test recording.
+            -- For state-managed frames the drag handle must not inherit
+            -- a Hide() from the real UI, even if native updates hide it.
             local overlay = CreateFrame("Frame", nil, proxy and UIParent or frame)
             overlay:SetPoint("TOPLEFT", frame, "TOPLEFT", -10, 10)
             overlay:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 10, -10)
