@@ -330,7 +330,14 @@ DFRL:NewMod("Cast", 1, function()
             if s.flashAlpha > 1 then s.flashAlpha = 1 end
 
             self.flashTex:SetAlpha(s.flashAlpha)
-            self.flashTex:Show()
+            -- Keep the original flash timing/alpha state, but don't draw
+            -- the full-screen-bright green overlay in Modern Dark.
+            local skins = DFRL.castbarSkins
+            if skins and skins:QuietPlayerCompletion() then
+                self.flashTex:Hide()
+            else
+                self.flashTex:Show()
+            end
 
             if s.flashAlpha >= 1 then
                 s.flash = false
@@ -422,6 +429,11 @@ DFRL:NewMod("Cast", 1, function()
 
             self.flashTex:SetVertexColor(0, 1, 0)
             self.flashTex:Show()
+            -- The theme renderer tones the result down and conceals the
+            -- extra flash; Fantasy retains the exact original behavior.
+            if DFRL.castbarSkins then
+                DFRL.castbarSkins:StylePlayerCompletion(self)
+            end
 
             s.fadeOut = true
             s.mode = "flash"
@@ -714,4 +726,6 @@ DFRL:NewMod("Cast", 1, function()
 
     -- execute  callbacks
     DFRL:NewCallbacks("Cast", callbacks)
+    -- Theme skin registers after the Cast renderer and all settings exist.
+    if DFRL.InitCastbarSkin then DFRL.InitCastbarSkin("player", Setup) end
 end)
