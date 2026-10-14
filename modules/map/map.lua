@@ -600,6 +600,11 @@ DFRL:NewMod("Map", 1, function()
 
         callbacks.alphaShadow = function(value)
             Setup.minimapShadow:SetAlpha(value)
+            if DFRL.minimapSkins then
+                -- The shadow slider remains profile-owned. Preserve its
+                -- latest alpha even while the Modern square conceals it.
+                DFRL.minimapSkins:UpdateShadowAlpha(value)
+            end
         end
 
         callbacks.showZoom = function(value)
@@ -742,6 +747,9 @@ DFRL:NewMod("Map", 1, function()
                 Setup.minimapShadow:SetTexture(Setup.texpath.. "uiminimapshadow.tga")
                 Minimap:SetMaskTexture("Textures\\MinimapMask")
             end
+            -- Shape overrides may change while Modern is already selected;
+            -- update the lean frame without altering mouse/zoom behavior.
+            if DFRL.minimapSkins then DFRL.minimapSkins:Refresh() end
         end
 
         callbacks.zoomX = function(value)
@@ -805,6 +813,8 @@ DFRL:NewMod("Map", 1, function()
 
         -- execute callbacks
         DFRL:NewCallbacks("Map", callbacks)
+        -- The map is constructed and callbacks already applied at this point.
+        if DFRL.InitMinimapSkin then DFRL.InitMinimapSkin(Setup) end
 
         f:UnregisterEvent("PLAYER_ENTERING_WORLD")
     end)

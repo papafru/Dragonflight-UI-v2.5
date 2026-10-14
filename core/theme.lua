@@ -55,6 +55,9 @@ Theme.presets = {
         Player = {playerDarkMode = 0, playerColor = {1, 1, 1}},
         Target = {targetDarkMode = 0, targetColor = {1, 1, 1}},
         Xprep = {xprepDarkMode = 0, xprepColor = {1, 1, 1}},
+        -- Round remains the Fantasy theme default; shape can be overridden
+        -- per theme without touching the character's legacy map settings.
+        Map = {mapSquare = false},
     },
     modern = {
         Bars = {barsDarkMode = .85, barsColor = {.76, .82, .9}, highlightColor = {.5, .72, .88}, showGryphoon = false},
@@ -65,6 +68,9 @@ Theme.presets = {
         Player = {playerDarkMode = .85, playerColor = {.82, .86, .94}},
         Target = {targetDarkMode = .85, targetColor = {.82, .86, .94}},
         Xprep = {xprepDarkMode = .85, xprepColor = {.8, .86, .95}},
+        -- Modern Dark is square by default, but the Map checkbox still
+        -- stores an independent per-theme override when toggled.
+        Map = {mapSquare = true},
     },
 }
 
