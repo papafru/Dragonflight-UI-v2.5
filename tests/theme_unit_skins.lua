@@ -290,6 +290,9 @@ eq(select(5,totMana:GetPoint(1)), -3, "Modern ToT health/power spacing")
 eq(TargetofTargetTexture:IsShown(), false, "Modern hides Mini ToT frame art")
 eq(TargetofTargetPortrait:IsShown(), false, "Modern hides original ToT portrait")
 eq(TargetofTargetBackground:IsShown(), false, "Modern hides original ToT background")
+TargetofTargetPortrait:Show() -- Native TargetofTarget_Update can reshow portraits
+style:UpdateLayout("tot") -- Mini's after-update hook must conceal it again
+eq(TargetofTargetPortrait:IsShown(), false, "ToT update hook resuppresses legacy portrait")
 eq(style.entries.tot.panel:IsShown(), true, "Modern ToT panel visible")
 eq(TargetofTargetFrame.name:GetPoint(1), "TOPLEFT", "Modern ToT name in rectangular header")
 eq(select(2,TargetofTargetFrame.name:GetPoint(1)),totHealth,"Modern ToT name positioned over custom bar")
@@ -497,8 +500,23 @@ eq(playerHealth:GetHeight(), 30, "Existing Appearance restores original height")
 eq(combatParent:GetAlpha(), .82, "Existing Appearance preserves original combat overlay alpha")
 eq(restParent:GetAlpha(), .55, "Existing Appearance preserves original resting overlay alpha")
 eq(DFRL.InitUnitFrameSkins("player", playerHealth, playerMana), true, "Idempotent init")
+eq(DFRL.InitUnitFrameSkins("tot", totHealth, totMana), true, "Idempotent ToT init")
 eq(#listeners, 1, "No duplicate theme listener")
 eq(numFrames, originalFrames, "No duplicated frames from initialization")
 eq(numTextures, originalTextures, "No duplicated textures from initialization")
 eq(DFRL.modules, nil, "No extra Modules grid toggle")
+local function readSource(path)
+    local fd = assert(io.open(root .. path, "r"))
+    local data = fd:read("*a")
+    fd:close()
+    return data
+end
+local miniSource = readSource("modules/unit/mini.lua")
+local targetSource = readSource("modules/unit/target.lua")
+eq(string.find(miniSource, 'DFRL.InitUnitFrameSkins("tot", Setup.totHealthBar, Setup.totManaBar)', 1, true) ~= nil,
+    true, "Mini initializes ToT after constructing bars")
+eq(string.find(miniSource, 'DFRL.unitFrameSkins:UpdateLayout("tot")', 1, true) ~= nil,
+    true, "Mini refreshes ToT layout after native updates")
+eq(string.find(targetSource, 'DFRL.unitFrameSkins:UpdateLayout("target")', 1, true) ~= nil,
+    true, "Target refreshes dynamic panel after power changes")
 print("PASS Milestone 3B rectangular unit frames: " .. checks .. " assertions")

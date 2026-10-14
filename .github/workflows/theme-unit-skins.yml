@@ -13,7 +13,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y lua5.1
       - name: Lua syntax validation
         run: |
-          luac5.1 -p modules/unit/skins.lua modules/unit/player.lua modules/unit/target.lua
+          luac5.1 -p modules/unit/skins.lua modules/unit/player.lua modules/unit/target.lua modules/unit/mini.lua
           lua5.1 tests/syntax_check.lua
       - name: Foundation tests
         run: lua5.1 tests/theme_foundation.lua
