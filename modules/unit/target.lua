@@ -782,4 +782,8 @@ DFRL:NewMod("Target", 1, function()
 
     -- execute callbacks
     DFRL:NewCallbacks("Target", callbacks)
+    -- Decorative-only renderer: no changes to target classification or bars.
+    if DFRL.InitUnitFrameSkins then
+        DFRL.InitUnitFrameSkins("target", Setup.healthBar, Setup.manaBar)
+    end
 end)
