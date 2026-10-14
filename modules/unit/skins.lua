@@ -27,7 +27,15 @@ end
 -- animation state. Restyle those existing regions instead of adding nested
 -- outlines that cross the two bars (the vanilla sizes overlap by 6 pixels).
 local function MakeBarSkin(bar, isHealth)
-    return {bar = bar, isHealth = isHealth}
+    -- This tint follows the animated fill's width, not the entire bar, so
+    -- empty health/resource space stays charcoal. The game's existing fill
+    -- color (hostility, class, power type) remains authoritative.
+    local tint = bar:CreateTexture(nil, "OVERLAY")
+    tint:SetTexture(WHITE)
+    tint:SetAllPoints(bar.fill)
+    tint:SetVertexColor(.025, .038, .055, .24)
+    tint:Hide()
+    return {bar = bar, isHealth = isHealth, tint = tint}
 end
 
 local function ApplyBarSkin(skin, modern)
@@ -43,10 +51,11 @@ local function ApplyBarSkin(skin, modern)
         -- Damage cutouts must match the flat fill, not flash the old bevel.
         bar.cutoutTexture = WHITE
         bar.bg:SetVertexColor(.035, .055, .080, .98)
-        -- Both original 30px health bars overlap the resource bars 6px.
-        -- 22px retains readable health text and creates a 2px clear gap.
-        if skin.isHealth then bar:SetHeight(22) end
+        -- Original health starts at y=0 and power at y=-24. Make a neat
+        -- 20px / 10px pair, with a 4px gap and no overlapping outlines.
+        bar:SetHeight(skin.isHealth and 20 or 10)
         bar:Update()
+        skin.tint:Show()
     elseif not modern and skin.original then
         local original = skin.original
         bar.fill:SetTexture(original.fillTexture)
@@ -54,7 +63,38 @@ local function ApplyBarSkin(skin, modern)
         bar.bg:SetVertexColor(unpack(original.background))
         bar:SetHeight(original.height)
         bar:Update()
+        skin.tint:Hide()
         skin.original = nil
+    end
+end
+
+-- The Player module's circular status pulses are centered on its portrait.
+-- Hide the *parent frames* in Modern: child textures can keep animating and
+-- setting their own alpha, but inherited parent alpha stays zero.
+local function SetEffects(entry, modern)
+    if not entry.effects then return end
+    if modern then
+        if not entry.savedEffectAlpha then
+            entry.savedEffectAlpha = {}
+            for index, effect in ipairs(entry.effects) do
+                entry.savedEffectAlpha[index] = effect:GetAlpha()
+            end
+        end
+        for _, effect in ipairs(entry.effects) do effect:SetAlpha(0) end
+    elseif entry.savedEffectAlpha then
+        for index, effect in ipairs(entry.effects) do
+            effect:SetAlpha(entry.savedEffectAlpha[index])
+        end
+        entry.savedEffectAlpha = nil
+    end
+end
+
+local function UpdateCombatAccent(entry)
+    if not entry or not entry.combatEdge or not entry.modern then return end
+    if UnitAffectingCombat and UnitAffectingCombat("player") then
+        entry.combatEdge:SetVertexColor(.92, .29, .31, 1)
+    else
+        entry.combatEdge:SetVertexColor(unpack(PALETTE.muted))
     end
 end
 
@@ -244,7 +284,7 @@ local function MakeRectangle(unit, owner, health, resource)
         classification:SetTextColor(unpack(PALETTE.accent))
         classification:Hide()
     end
-    return panel, outline, classification
+    return panel, outline, classification, edge[3]
 end
 
 function Style:Apply(selected)
@@ -255,17 +295,20 @@ function Style:Apply(selected)
             RestyleText(entry)
             RestylePvP(entry)
             entry.modern = true
+            SetEffects(entry, true)
         elseif not modern and entry.modern then
             RestoreOrnate(entry)
             RestoreText(entry)
             RestorePvP(entry)
             entry.modern = false
+            SetEffects(entry, false)
         end
         if modern then
             -- Target/portrait update events can show legacy regions again.
             SuppressOrnate(entry)
             entry.panel:Show()
             entry.outline:Show()
+            UpdateCombatAccent(entry)
         else
             entry.panel:Hide()
             entry.outline:Hide()
@@ -277,7 +320,7 @@ function Style:Apply(selected)
     self:UpdateClassification()
 end
 
-function DFRL.InitUnitFrameSkins(unit, health, resource)
+function DFRL.InitUnitFrameSkins(unit, health, resource, effects)
     if unit ~= "player" and unit ~= "target" then return false end
     if Style.entries[unit] then return true end
     if not health or not health.fill or not health.bg then return false end
@@ -286,7 +329,7 @@ function DFRL.InitUnitFrameSkins(unit, health, resource)
 
     local ornate = CollectOrnate(unit, owner)
 
-    local panel, outline, classLabel = MakeRectangle(unit, owner, health, resource)
+    local panel, outline, classLabel, combatEdge = MakeRectangle(unit, owner, health, resource)
     local bars = {MakeBarSkin(health, true)}
     if resource and resource.fill and resource.bg then
         table.insert(bars, MakeBarSkin(resource, false))
@@ -295,6 +338,8 @@ function DFRL.InitUnitFrameSkins(unit, health, resource)
         owner = owner, health = health, resource = resource,
         ornate = ornate, panel = panel, outline = outline,
         bars = bars, classLabel = classLabel,
+        combatEdge = unit == "player" and combatEdge or nil,
+        effects = unit == "player" and effects or nil,
         name = owner.name,
         level = unit == "player" and _G.PlayerLevelText or _G.TargetLevelText,
         pvpIcon = unit == "player" and _G.PlayerPVPIcon or _G.TargetPVPIcon,
@@ -305,12 +350,24 @@ function DFRL.InitUnitFrameSkins(unit, health, resource)
     watcher:RegisterEvent("PLAYER_ENTERING_WORLD")
     watcher:RegisterEvent("UNIT_PORTRAIT_UPDATE")
     watcher:RegisterEvent("UNIT_FACTION")
-    if unit == "target" then watcher:RegisterEvent("PLAYER_TARGET_CHANGED") end
+    if unit == "target" then
+        watcher:RegisterEvent("PLAYER_TARGET_CHANGED")
+    else
+        watcher:RegisterEvent("PLAYER_REGEN_DISABLED")
+        watcher:RegisterEvent("PLAYER_REGEN_ENABLED")
+        watcher:RegisterEvent("PLAYER_UPDATE_RESTING")
+    end
     watcher:SetScript("OnEvent", function()
         -- Legacy client portrait and PvP routines run outside our module.
         -- Never intercept their texture updates: just re-hide modern art.
         local entry = Style.entries[unit]
-        if entry and entry.modern then SuppressOrnate(entry) end
+        if entry and entry.modern then
+            SuppressOrnate(entry)
+            if unit == "player" then
+                SetEffects(entry, true)
+                UpdateCombatAccent(entry)
+            end
+        end
         if unit == "target" then Style:UpdateClassification() end
     end)
     Style[unit .. "Watcher"] = watcher

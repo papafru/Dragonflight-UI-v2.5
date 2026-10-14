@@ -1010,7 +1010,9 @@ end
             DFRL:NewCallbacks("Player", callbacks)
             -- Theme artwork is attached only after the actual status bars exist.
             if DFRL.InitUnitFrameSkins then
-                DFRL.InitUnitFrameSkins("player", Setup.healthBar, Setup.manaBar)
+                DFRL.InitUnitFrameSkins("player", Setup.healthBar, Setup.manaBar, {
+                    Setup.combatOverlay, Setup.restingOverlay, restingAnimation,
+                })
             end
             f:UnregisterEvent("PLAYER_ENTERING_WORLD")
         end

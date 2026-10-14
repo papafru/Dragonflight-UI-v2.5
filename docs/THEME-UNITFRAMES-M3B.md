@@ -95,3 +95,38 @@ artwork allocations during repeated theme switching.
 
 **Important:** Modern Dark flat-bar styling must be confirmed visually in
 the actual WoW 1.18 client before merging PR #4.
+
+
+## Combat-glow and bar-finish refinement
+
+The next WoW client screenshot showed that the original circular combat pulse
+still appeared to the left of the new rectangular Player frame. It also showed
+very saturated flat bars against the muted charcoal panel.
+
+- The original `Player` module creates a portrait-centered red
+  `Setup.combatOverlay`, a similarly centered resting overlay,
+  and an independent `restingAnimation` flipbook. The initializer
+  now passes these existing references to the unit-frame renderer.
+- When Modern Dark is enabled, the *effect parent frames* inherit alpha zero.
+  This is deliberately different from changing the child texture's opacity,
+  which combat/resting OnUpdate animations would immediately overwrite.
+  Their original frame alphas are captured once and restored on Fantasy or
+  Existing Appearance. No combat OnUpdate handler, event binding, or status
+  logic is replaced.
+- A slim left border on the rectangular Player panel switches from the
+  normal cool-muted border to a restrained red accent while the player is
+  in combat; state is updated by the existing vanilla combat entry/exit
+  events. Gameplay effects continue internally and are restored for Fantasy.
+- Status bars remain flat, retaining native class/reaction/power color
+  updates and the current damage cutout system. A low-opacity graphite
+  **fill-tracking** tint (rather than a full-width overlay) softens highly
+  saturated health/power colors without interfering with the native fill
+  texture or color values.
+- The Modern health bar is 20px and the resource bar 10px, with a 4px gap
+  between their legacy top anchors. The header and only outer border remain
+  fixed. Fantasy restores 30px health/12px resource geometry exactly.
+- Regression tests simulate repeatedly changing combat texture opacity,
+  entering/leaving combat, resting-frame changes, original animation parent
+  alpha restoration, and the tint's attachment to the animated fill width.
+
+Actual 1.18-client visual signoff is still required before merging PR #4.

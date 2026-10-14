@@ -134,6 +134,23 @@ local function Bar(isHealth)
 end
 local playerHealth, playerMana = Bar(true), Bar(false)
 local targetHealth, targetMana = Bar(true), Bar(false)
+local combatParent = Region("Frame", PlayerFrame)
+combatParent:SetAlpha(.82)
+local combatRing = combatParent:CreateTexture(nil, "OVERLAY")
+combatRing:SetAlpha(.65)
+local restParent = Region("Frame", PlayerFrame)
+restParent:SetAlpha(.55)
+local restRing = restParent:CreateTexture(nil, "OVERLAY")
+restRing:SetAlpha(.25)
+local restAnimation = Region("Frame")
+restAnimation:SetAlpha(.73)
+local effects = {combatParent, restParent, restAnimation}
+local expectedEffectAlpha = {.82, .55, .73}
+local mockCombat = false
+function UnitAffectingCombat(unit)
+    eq(unit, "player", "Combat state queried for player only")
+    return mockCombat
+end
 targetMana:Hide()
 local savedHandler = targetHealth.mouseHandler
 local savedAlpha = {
@@ -182,11 +199,11 @@ eq(numFrames, 0, "No frames on invalid init")
 
 -- Target can initialize before Player. This is how these modules initialize.
 eq(DFRL.InitUnitFrameSkins("target", targetHealth, targetMana), true, "Target initialization")
-eq(DFRL.InitUnitFrameSkins("player", playerHealth, playerMana), true, "Player initialization")
+eq(DFRL.InitUnitFrameSkins("player", playerHealth, playerMana, effects), true, "Player initialization with animation parent references")
 eq(style.listening, true, "Listener connected")
 eq(#listeners, 1, "One theme listener for both unit frames")
 eq(numFrames, 4, "One outer rectangular border per unit plus two watchers")
-eq(numTextures, 20, "Four original bar regions plus six rectangle textures per unit")
+eq(numTextures, 26, "Four original bar regions, six rectangle regions and tint/effect textures")
 eq(style.entries.player.modern, false, "Player starts unchanged")
 eq(style.entries.target.modern, false, "Target starts unchanged")
 
@@ -210,6 +227,9 @@ for _,id in ipairs({"player", "target"}) do
         eq(skin.bar:GetHeight(), index == 1 and 30 or 12, "Legacy geometry untouched in Fantasy")
         eq(skin.bar.fill:GetTexture(), index == 1 and "original-beveled-health.tga" or "original-mana.tga", "Original textures untouched")
         eq(skin.bar.bg:GetVertexColor(), 0, "Original status background untouched")
+        eq(skin.tint.layer, "OVERLAY", "Tint uses stock 1.12 overlay layer")
+        eq(skin.tint.allPoints, skin.bar.fill, "Tint follows filled health/resource section")
+        eq(skin.tint.shown, false, "Fantasy never displays color mute")
     end
 end
 eq(TargetFrame.portrait:GetAlpha(), savedAlpha.target[3], "Original target portrait initially unchanged")
@@ -217,6 +237,10 @@ eq(#style.entries.player.ornate, 4, "Player graphics include actual portrait glo
 eq(#style.entries.target.ornate, 5, "Target graphics include actual portrait and nameplate globals")
 eq(style.playerWatcher.events.UNIT_PORTRAIT_UPDATE, true, "Player portrait reappearing events watched")
 eq(style.targetWatcher.events.PLAYER_TARGET_CHANGED, true, "Target changes watched")
+eq(style.playerWatcher.events.PLAYER_REGEN_DISABLED, true, "Combat start updates compact indicator")
+eq(style.playerWatcher.events.PLAYER_REGEN_ENABLED, true, "Combat exit updates compact indicator")
+eq(style.playerWatcher.events.PLAYER_UPDATE_RESTING, true, "Resting updates reassert concealment")
+eq(style.entries.player.effects, effects, "Animation parents owned by Player code")
 eq(TargetFrameTexture:GetAlpha(), savedAlpha.target[1], "Original target art unchanged")
 eq(targetMana:IsShown(), false, "Existing hidden target mana remains hidden")
 
@@ -248,16 +272,36 @@ for _,id in ipairs({"player", "target"}) do
         local bar = skin.bar
         eq(bar.fill:GetTexture(), "Interface\\Buttons\\WHITE8X8", "Flat fill replaces beveled artwork")
         eq(bar.cutoutTexture, "Interface\\Buttons\\WHITE8X8", "Damage cutouts match flat theme")
-        eq(bar:GetHeight(), i == 1 and 22 or 12, "22px health / 12px resource with 2px separation")
+        eq(bar:GetHeight(), i == 1 and 20 or 10, "Modern health 20px and resource 10px with gap")
         eq(bar.bg:GetVertexColor(), .035, "Graphite replaces semitransparent black background")
         eq(bar.bg.vertexColor[4], .98, "Modern bar background opacity")
         eq(skin.original ~= nil, true, "Original bar texture and geometry captured")
         eq(bar.fill:GetHeight(), bar:GetHeight(), "Bar fill geometry recalculated after resize")
+        eq(skin.tint.shown, true, "Softening overlay visible only in Modern")
+        eq(skin.tint.vertexColor[4], .24, "Flat bar tint is subtle")
     end
 end
 eq(targetMana:IsShown(), false, "Hidden target mana remains hidden during style")
 eq(playerHealth.value, 35, "Health value unchanged")
 eq(playerHealth.fill.vertexColor[2], 1, "Reaction/class fill color remains controlled by bar")
+eq(style.entries.player.combatEdge.vertexColor[1], .25, "Idle border remains muted")
+for index,effect in ipairs(effects) do
+    eq(effect:GetAlpha(), 0, "Modern conceals old circular status glow parents")
+    eq(effect:IsShown(), true, "Modern does not interfere with animation show/hide")
+end
+eq(combatRing:GetAlpha(), .65, "Combat pulse texture alpha not overwritten")
+mockCombat = true
+style.playerWatcher.scripts.OnEvent()
+eq(style.entries.player.combatEdge.vertexColor[1], .92, "Combat state is indicated by a red edge")
+eq(style.entries.player.combatEdge.vertexColor[2], .29, "Combat indicator has subdued warm red")
+combatRing:SetAlpha(1)
+eq(combatParent:GetAlpha(), 0, "Continuously animated red circle still suppressed")
+mockCombat = false
+style.playerWatcher.scripts.OnEvent()
+eq(style.entries.player.combatEdge.vertexColor[1], .25, "Combat edge returns to muted after leaving combat")
+restRing:SetAlpha(.85)
+eq(restParent:GetAlpha(), 0, "Animated resting ring still suppressed")
+eq(restAnimation:GetAlpha(), 0, "Old rest flipbook also suppressed")
 -- Target reaction can change while Modern is active. Never hardcode status color.
 targetHealth.fill:SetVertexColor(.8, .22, .1, 1)
 eq(targetHealth.fill.vertexColor[1], .8, "Health reaction recolor remains possible in Modern")
@@ -322,6 +366,7 @@ for _,id in ipairs({"player", "target"}) do
         eq(bar.bg.vertexColor[4], .5, "Original background alpha restored")
         eq(skin.original, nil, "Per-bar saved skin state cleared")
         eq(bar.fill:GetHeight(), bar:GetHeight(), "Restored fill geometry recalculated")
+        eq(skin.tint.shown, false, "Switching to Fantasy hides tint")
     end
     for i,region in ipairs(e.ornate) do
         local saved = originalRegions[region]
@@ -340,6 +385,10 @@ for _,id in ipairs({"player", "target"}) do
     eq(dx, initial.point[4], "PvP original x-offset restored")
     eq(dy, initial.point[5], "PvP original y-offset restored")
 end
+for i,effect in ipairs(effects) do
+    eq(effect:GetAlpha(), expectedEffectAlpha[i], "Fantasy restores exact glow parent alpha")
+end
+eq(combatRing:GetAlpha(), 1, "Dynamic combat texture value remains controlled by original Player module")
 eq(TargetFrameTexture.texture, "new-elite-frame-art", "Dynamic elite artwork survives theme switching")
 eq(PlayerFrame.name.points[1][1], savedAnchors.playerName[1], "Player name restored anchor")
 eq(TargetFrame.name.points[1][1], savedAnchors.targetName[1], "Target name restored anchor")
@@ -365,6 +414,8 @@ eq(PlayerPortrait:IsShown(), true, "Existing Appearance restores actual portrait
 eq(PlayerPVPIcon:GetWidth(), 64, "Existing Appearance preserves PvP marker size")
 eq(playerHealth.fill:GetTexture(), "original-beveled-health.tga", "Existing Appearance restores original fill")
 eq(playerHealth:GetHeight(), 30, "Existing Appearance restores original height")
+eq(combatParent:GetAlpha(), .82, "Existing Appearance preserves original combat overlay alpha")
+eq(restParent:GetAlpha(), .55, "Existing Appearance preserves original resting overlay alpha")
 eq(DFRL.InitUnitFrameSkins("player", playerHealth, playerMana), true, "Idempotent init")
 eq(#listeners, 1, "No duplicate theme listener")
 eq(numFrames, originalFrames, "No duplicated frames from initialization")
