@@ -6,6 +6,20 @@ local Skin = {entries = {}, listening = false}
 DFRL.castbarSkins = Skin
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
+-- Success should read as positive feedback, not a full neon-green flash.
+local SUCCESS = {.32, .66, .51}
+
+function Skin:QuietPlayerCompletion()
+    local entry = self.entries.player
+    return entry and entry.modern == true or false
+end
+
+function Skin:StylePlayerCompletion(setup)
+    if not self:QuietPlayerCompletion() then return false end
+    setup.barTexture:SetVertexColor(unpack(SUCCESS))
+    if setup.flashTex then setup.flashTex:Hide() end
+    return true
+end
 
 local function Line(frame, a, x1, y1, b, x2, y2, horizontal)
     local line = frame:CreateTexture(nil, "ARTWORK")
@@ -56,6 +70,23 @@ local function Toggle(entry, modern)
         for i=1,table.getn(entry.lines) do entry.lines[i]:Hide() end
     end
     entry.modern = modern
+
+    -- Switching themes during the short completion/fade window must update
+    -- the completion color immediately, not wait for the next spell cast.
+    -- Normal casting and channeling colors remain owned by the Cast module.
+    local state = setup.state
+    if entry.id == "player" and state and state.mode == "flash"
+        and setup.frame:IsShown() then
+        if modern then
+            Skin:StylePlayerCompletion(setup)
+        else
+            setup.barTexture:SetVertexColor(0, 1, 0)
+            if setup.flashTex and state.flash then
+                setup.flashTex:SetVertexColor(0, 1, 0)
+                setup.flashTex:Show()
+            end
+        end
+    end
 end
 
 function Skin:Apply(theme)
@@ -73,7 +104,7 @@ function DFRL.InitCastbarSkin(id, setup)
         or not setup.backdrop or not setup.borderframe then return false end
 
     local f = setup.frame
-    local entry = {setup = setup, modern = false, lines = {}}
+    local entry = {id = id, setup = setup, modern = false, lines = {}}
 
     -- A separate matte avoids fighting Cast/TargetCastbar appearance
     -- callbacks, which continue recoloring their original hidden backdrop.

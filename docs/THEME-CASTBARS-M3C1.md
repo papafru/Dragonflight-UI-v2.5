@@ -27,3 +27,14 @@
 - Live switch **Modern Dark → Fantasy → Existing Appearance** and verify the original bar artwork without reload; then `/reload` while Modern Dark is selected.
 
 **Minimap styling is separate 3C.2 work.** Its round/square mask settings, overlay panel, collector addon buttons, mousewheel zoom and map clicks are not modified by the cast skin.
+
+## Modern Dark quiet completion — screenshot refinement
+
+An in-client screenshot of **Rough Blasting Powder** showed the normal progress bar was clean, but completion looked too bright and busy. Source review confirmed two overlapping effects: the Player Cast module forces the completed fill to pure green `(0, 1, 0)` and then animates an additional full-brightness green flash texture before fading.
+
+- In **Modern Dark only**, the cast-skin renderer now changes the Player success fill to a restrained green `(.32, .66, .51)`, and suppresses the extra success flash. The full-width completion fill still conveys success and the original frame fade proceeds unchanged.
+- In **Fantasy** and **Existing Appearance**, pure green and the original completion flash remain untouched. Switching back during a live success flash restores the original bright feedback; switching to Modern mid-flash mutes it immediately.
+- The Cast module remains owner of `SPELLCAST_STOP`, `SPELLCAST_CHANNEL_STOP`, `OnUpdate`, `flashAlpha`, `fadeOut`, `currentProgress`, sparks, spell time, casting/channeling and interruption states. Only the success presentation is conditioned by the renderer. The optional Target cast bar is not modified by this refinement.
+- The regression suite now extracts and executes the **actual** Cast module's event and OnUpdate methods using Lua 5.1 mocks. It checks start → completion → flash timing → fade, theme changes mid-completion, Fantasy restoration, and that interruption red and spell text are unchanged.
+
+**Real-client acceptance:** Cast Rough Blasting Powder (or another short spell) and compare the reduced completion effect, then verify Fantasy retains the original visual and interrupted casts still work.

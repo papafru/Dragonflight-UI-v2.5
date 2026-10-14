@@ -16,6 +16,7 @@ end
 function methods:SetTexture(t) self.texture=t end
 function methods:GetTexture() return self.texture end
 function methods:SetAlpha(a) self.alpha=a end
+function methods:SetText(t) self.text=t end
 function methods:GetAlpha() return self.alpha end
 function methods:SetVertexColor(...) self.vertex={...} end
 function methods:GetVertexColor() return unpack(self.vertex) end
@@ -147,6 +148,7 @@ theme:Select(nil)
 eq(player.barTexture:GetTexture(),"player-fantasy-gradient.blp","Existing Appearance restores original graphics")
 eq(target.barTexture:GetTexture(),"target-fantasy-gradient.blp","Existing Appearance restores optional Target")
 eq(#theme.listeners,1,"No duplicate listeners after theme switching")
+eq(skin:QuietPlayerCompletion(),false,"Quiet completion disabled outside Modern")
 -- Even missing Shadow is safe on an optional setup.
 local minimal=make("minimal",false)
 minimal.dropshadow=nil
@@ -171,4 +173,89 @@ eq(string.find(t,'DFRL.InitCastbarSkin("target", Setup)',1,true)~=nil,true,"Targ
 eq(string.find(toc,'modules\\cast\\skins.lua',1,true)~=nil,true,"TOC includes shared skin renderer")
 eq(string.find(c,'DFRL:NewCallbacks("Cast", callbacks)',1,true) < string.find(c,'DFRL.InitCastbarSkin("player", Setup)',1,true),true,"Player skin initializes after callbacks")
 eq(string.find(t,'DFRL:NewCallbacks("TargetCastbar", callbacks)',1,true) < string.find(t,'DFRL.InitCastbarSkin("target", Setup)',1,true),true,"Target skin initializes after callbacks")
+
+-- Regression for client screenshot: vanilla success color (0,1,0) plus
+-- another animated green flash created the noisy modern completion frame.
+-- Exercise the actual Cast:HandleEvent / Cast:OnUpdate code from source,
+-- without executing the entire game-dependent module constructor.
+local eventSource=string.match(c,"(    function Setup:HandleEvent%(event, arg1, arg2%).-\n    end)")
+local updateSource=string.match(c,"(    function Setup:OnUpdate%(elapsed%).-\n    end)")
+eq(type(eventSource),"string","Cast event source extracted for end-to-end test")
+eq(type(updateSource),"string","Cast fade/flash update extracted for end-to-end test")
+local liveMethods=assert(loadstring("local Setup = {}\n"..eventSource.."\n"..updateSource.."\nreturn Setup"))()
+-- Use the same Setup table registered with the skin, so theme switches
+-- during completion operate on the real active cast state.
+local runtime=player
+runtime.HandleEvent=liveMethods.HandleEvent
+runtime.OnUpdate=liveMethods.OnUpdate
+local now=125
+GetTime=function() return now end
+FAILED="Failed"
+INTERRUPTED="Interrupted"
+runtime.config={width=200,height=16,fillDirection="right",flashSpeed=5,
+  alphaSpeed=3,holdTimeDuration=1,barColor={r=.9,g=.82,b=.1}}
+runtime.state={casting=false,channeling=false,fadeOut=false,flash=false,
+  flashAlpha=0,holdTime=0,currentProgress=0,startTime=0,maxValue=0}
+runtime.frame=player.frame
+runtime.barTexture=player.barTexture
+runtime.spark=player.spark
+runtime.flashTex=player.flashTex
+runtime.text=region(nil,"FontString")
+runtime.timeText=region(nil,"FontString")
+runtime.UpdateBarVisual=function(self,progress)
+ self.barTexture:SetWidth(math.max(.1,progress*self.config.width))
+end
+
+theme:Select("modern")
+runtime.flashTex:Hide()
+eq(skin:QuietPlayerCompletion(),true,"Modern finish enters quiet state")
+runtime:HandleEvent("SPELLCAST_START","Rough Blasting Powder",3500)
+eq(runtime.state.casting,true,"Normal spell start still activates cast")
+eq(runtime.barTexture:GetVertexColor(),.9,"Modern ongoing casting color unchanged")
+eq(runtime.flashTex:IsShown(),false,"No flash while casting")
+runtime:HandleEvent("SPELLCAST_STOP")
+eq(runtime.state.casting,false,"Successful finish ends ongoing cast")
+eq(runtime.state.flash,true,"Original completion flash state still ticks")
+eq(runtime.state.fadeOut,true,"Original fade-out state still ticks")
+eq(runtime.state.mode,"flash","Completion mode unchanged")
+eq(runtime.barTexture:GetVertexColor(),.32,"Soft success green replaces neon green")
+eq(runtime.barTexture.vertex[2],.66,"Success green keeps readable green")
+eq(runtime.barTexture.vertex[3],.51,"Success green has desaturated blue")
+eq(runtime.flashTex:IsShown(),false,"Additional completion flash suppressed immediately")
+eq(runtime.barTexture.width,200,"Completed fill remains at 100 percent")
+runtime:OnUpdate(.09)
+eq(math.abs(runtime.state.flashAlpha-.45)<.000001,true,"Completion animation internal timing preserved")
+eq(runtime.state.flash,true,"Completion timing still in progress")
+eq(runtime.flashTex:IsShown(),false,"OnUpdate does not bring back noisy flash")
+theme:Select("fantasy")
+eq(runtime.barTexture:GetVertexColor(),0,"Fantasy restores vivid default success green")
+eq(runtime.barTexture.vertex[2],1,"Fantasy success color green")
+eq(runtime.flashTex:IsShown(),true,"Fantasy shows original flash mid-completion")
+runtime:OnUpdate(.03)
+eq(runtime.flashTex:IsShown(),true,"Fantasy animates completion flash normally")
+theme:Select("modern")
+eq(runtime.barTexture:GetVertexColor(),.32,"Modern retones success mid-completion")
+eq(runtime.flashTex:IsShown(),false,"Modern quiet mode hides in-flight flash")
+runtime:OnUpdate(.09)
+eq(runtime.state.flash,false,"Original flash interval completes normally")
+eq(runtime.state.fadeOut,true,"Fade continues after quiet flash interval")
+runtime:OnUpdate(.08)
+eq(runtime.frame:GetAlpha()<1,true,"Original fade progression still runs")
+eq(runtime.flashTex:IsShown(),false,"Flash remains suppressed during Modern fade")
+theme:Select(nil)
+eq(skin:QuietPlayerCompletion(),false,"Existing Appearance has normal completion behavior")
+runtime:HandleEvent("SPELLCAST_START","Rough Blasting Powder",2500)
+runtime:HandleEvent("SPELLCAST_STOP")
+eq(runtime.barTexture:GetVertexColor(),0,"Existing Appearance preserves original success red channel")
+eq(runtime.barTexture.vertex[2],1,"Existing Appearance uses original full green")
+eq(runtime.flashTex:IsShown(),true,"Existing Appearance retains original flash")
+runtime:OnUpdate(.1)
+eq(runtime.flashTex:IsShown(),true,"Original flash updates outside Modern")
+theme:Select("modern")
+runtime:HandleEvent("SPELLCAST_START","Rough Blasting Powder",2500)
+runtime:HandleEvent("SPELLCAST_INTERRUPTED")
+eq(runtime.barTexture:GetVertexColor(),1,"Interrupted cast retains default red")
+eq(runtime.barTexture.vertex[2],0,"Quiet success does not alter interruption red")
+eq(runtime.state.mode,"hold","Interrupted hold period preserved")
+eq(runtime.text.text,INTERRUPTED,"Interrupted spell label remains unchanged")
 print("PASS Milestone 3C.1 cast skins: "..assertions.." assertions")
