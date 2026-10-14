@@ -15,12 +15,23 @@ local function frame(name,parent)
   table.insert(frames,f)
   return f
 end
-function CreateFrame(kind,name,parent) return frame(name,parent) end
+function CreateFrame(kind,name,parent)
+  local f=frame(name,parent)
+  f.kind=kind
+  return f
+end
 UIParent=frame("UIParent")
 function methods:RegisterEvent(s) self.events=self.events or {};self.events[s]=true end
 function methods:SetScript(k,f) self.scripts[k]=f end
 function methods:GetScript(k) return self.scripts[k] end
 function methods:SetPoint(...) self.point={...} end
+function methods:GetPoint() if self.point then return unpack(self.point) end end
+function methods:ClearAllPoints() self.point=nil end
+function methods:GetHeight() return self.height end
+function methods:GetTop() return self.top or 400 end
+function methods:GetBottom() return self.bottom or 100 end
+function methods:GetObjectType() return self.kind or "Frame" end
+function methods:GetChildren() return unpack(self.children) end
 function methods:SetAllPoints(other) self.allPoints=other end
 function methods:SetWidth(x) self.width=x end
 function methods:SetHeight(x) self.height=x end
@@ -178,4 +189,46 @@ bind:HandleKey("MOUSEWHEELUP")
 DFRL_MouseoverKeybindExit.scripts.OnClick()
 same(map["MOUSEWHEELUP"],nil,"Cancel button undoes wheel binding")
 same(bind.active,false,"Cancel button ends mode")
-print("PASS transactional keybinds: "..n.." assertions")
+-- Both legacy ESC paths must cancel without opening the game menu.
+local menu=frame("MockGameMenu",UIParent)
+menu:SetHeight(320)
+menu:Hide()
+local keyButton=frame("MockKeyButton",menu)
+keyButton:SetPoint("TOP",menu,"BOTTOM",0,0)
+DFRL.menuframe=menu
+DFRL.menuButtons={keybindings=keyButton}
+DFRL.tools={CreateButton=function(parent,label,w,h)
+    local button=CreateFrame("Button",nil,parent)
+    button:SetText(label)
+    button:SetWidth(w)
+    button:SetHeight(h)
+    return button
+end}
+DFRL.EditMode={active=false,ready=true,IsActive=function(self)return self.active end,
+    Start=function()return true end,Stop=function()end}
+StaticPopupDialogs={}
+YES,NO="Yes","No"
+local opened=0
+ToggleGameMenu=function() opened=opened+1 end
+assert(loadfile(root.."modules/menu/editmode.lua"))()
+DFRL.InitEditModeMenu()
+same(DFRL.editModeMenuInitialized,true,"ESC menu extension initialized")
+bind:Start()
+selectButton(2)
+bind:HandleKey("K")
+same(bind.pending,true,"preview pending before menu ESC")
+ToggleGameMenu()
+same(bind.active,false,"ToggleGameMenu ESC cancels bind mode")
+same(map["K"],nil,"ToggleGameMenu ESC rolls back preview")
+same(map["2"],"ACTIONBUTTON2","ToggleGameMenu ESC restores old key")
+same(opened,0,"ESC in keybind mode never opens menu")
+bind:Start()
+selectButton(2)
+bind:HandleKey("K")
+bind:HandleKey("ESCAPE")
+ToggleGameMenu()
+same(bind.active,false,"OnKeyDown ESC cancels session")
+same(opened,0,"Second menu route for same ESC is swallowed")
+ToggleGameMenu()
+same(opened,1,"Normal menu ToggleGameMenu works after guard consumed")
+print("PASS transactional keybinds + ESC menu integration: "..n.." assertions")
