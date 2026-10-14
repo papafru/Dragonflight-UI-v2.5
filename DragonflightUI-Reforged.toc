@@ -22,6 +22,7 @@ data\tables.lua
 
 # MODULES
 modules\bars\bars.lua
+modules\bars\skins.lua
 modules\bars\range.lua
 modules\bars\hoverbind.lua
 modules\cast\cast.lua
