@@ -1,0 +1,25 @@
+name: fruUI Modern Unit Frames
+on:
+  push:
+    branches:
+      - feature/theme-unitframes-m3b
+  pull_request:
+jobs:
+  lua-unit-skins:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua 5.1
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+      - name: Lua syntax validation
+        run: |
+          luac5.1 -p modules/unit/skins.lua modules/unit/player.lua modules/unit/target.lua modules/unit/mini.lua
+          lua5.1 tests/syntax_check.lua
+      - name: Foundation tests
+        run: lua5.1 tests/theme_foundation.lua
+      - name: Theme selection tests
+        run: lua5.1 tests/theme_selection.lua
+      - name: Action skin tests
+        run: lua5.1 tests/theme_action_skins.lua
+      - name: Unit-frame skin tests
+        run: lua5.1 tests/theme_unit_skins.lua

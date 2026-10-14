@@ -739,6 +739,7 @@ DFRL:NewMod("Target", 1, function()
             Setup:UpdateBarColor()
         end
 
+        if DFRL.unitFrameSkins then DFRL.unitFrameSkins:UpdateLayout("target") end
         if event == "PLAYER_ENTERING_WORLD" then
             f:UnregisterEvent("PLAYER_ENTERING_WORLD")
         end
@@ -782,4 +783,8 @@ DFRL:NewMod("Target", 1, function()
 
     -- execute callbacks
     DFRL:NewCallbacks("Target", callbacks)
+    -- Decorative-only renderer: no changes to target classification or bars.
+    if DFRL.InitUnitFrameSkins then
+        DFRL.InitUnitFrameSkins("target", Setup.healthBar, Setup.manaBar)
+    end
 end)
