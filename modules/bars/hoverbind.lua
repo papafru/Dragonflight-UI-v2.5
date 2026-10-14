@@ -428,6 +428,11 @@ function Bind:Start()
         return
     end
     self.active = true
+    -- An earlier ESC cancellation may have left the one-frame duplicate
+    -- guard set. A freshly opened keybinding session must accept its first
+    -- Escape, even if reopened before another frame has rendered.
+    self.escapeGuard = false
+    if self.escapeGuardFrame then self.escapeGuardFrame:Hide() end
     self.journal = {}
     self.journalOrder = {}
     self.pending = false
