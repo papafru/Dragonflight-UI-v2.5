@@ -45,6 +45,10 @@ function methods:SetTexture(...) end
 function methods:SetVertexColor(...) end
 function methods:CreateTexture(...) return frame(nil,self) end
 function methods:SetText(text) self.text=text end
+function methods:SetTextColor(...) self.textColor={...} end
+function methods:SetShadowColor(...) self.shadowColor={...} end
+function methods:SetShadowOffset(...) self.shadowOffset={...} end
+function methods:CreateFontString(...) return frame(nil,self) end
 function methods:GetNormalTexture() return frame(nil,self) end
 function methods:GetHighlightTexture() return frame(nil,self) end
 function methods:GetPushedTexture() return frame(nil,self) end
@@ -127,6 +131,22 @@ eq(overlayToT~=nil,true,"ToT registered movable")
 eq(overlayBuff~=nil,true,"Later sparse frame registered movable")
 eq(overlayTarget:IsShown(),true,"Target overlay visible")
 eq(overlayToT:IsShown(),true,"ToT overlay visible")
+eq(overlayTarget.nameText.text,"Target Frame","Target has readable name")
+eq(overlayToT.nameText.text,"Target of Target","ToT has readable name")
+eq(overlayBuff.nameText.text,"Buff Group 32","Buff anchor has readable name")
+local playerOverlay,mainOverlay,rightOverlay,partyOverlay
+for _,entry in ipairs(edit.overlays) do
+ if entry.frame==PlayerFrame then playerOverlay=entry.overlay end
+ if entry.frame==DFRL.mainBar then mainOverlay=entry.overlay end
+ if entry.frame==MultiBarRight then rightOverlay=entry.overlay end
+ if entry.frame==PartyMemberFrame1 then partyOverlay=entry.overlay end
+end
+eq(playerOverlay.nameText.text,"Player Frame","Player frame named")
+eq(mainOverlay.nameText.text,"Main Action Bar","Main bar named")
+eq(rightOverlay.nameText.text,"Right Action Bar","Right action bar named")
+eq(partyOverlay.nameText.text,"Party Member 1","Party frame named")
+eq(overlayTarget.nameText.textColor[1],1,"Caption uses high contrast white")
+eq(overlayTarget.nameText.shadowColor[4],1,"Caption has dark text shadow")
 -- The native client can hide both frames during target events while editing.
 TargetFrame:Hide()
 TargetofTargetFrame:Hide()

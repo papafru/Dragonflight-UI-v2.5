@@ -237,11 +237,26 @@ function Bind:HandleKey(raw)
     if not self.active then return end
     local key = string.upper(tostring(raw or ""))
     if key == "ESCAPE" then
-        -- A legacy client may also fire ToggleGameMenu for this same key.
-        -- The guard expires on the next rendered frame if no toggle occurs.
+        -- In 1.12 one press may arrive through both OnKeyDown and
+        -- ToggleGameMenu. Handle it at most once until the next frame.
+        if self.escapeGuard then return end
         self.escapeGuard = true
         if self.escapeGuardFrame then self.escapeGuardFrame:Show() end
-        self:Cancel() -- always rollback, including when hovering a button
+        if self.hovered and self.hovered:IsShown() then
+            -- ESC over an action clears only that action's keys. This is
+            -- a provisional change, reverted by Cancel and saved by Save.
+            local keys = CurrentKeys(self.hovered.command)
+            if table.getn(keys) == 0 then
+                self:UpdateStatus("Already unbound: " .. self.hovered.target:GetName())
+            elseif ClearKeys(self.hovered.command) then
+                self:UpdateLabels()
+                self:UpdateStatus("Cleared (unsaved): " .. self.hovered.target:GetName())
+            else
+                self:UpdateStatus("Could not clear this binding.")
+            end
+        else
+            self:Cancel() -- ESC outside any button cancels the session
+        end
         return
     end
     if not self.hovered or IsModifier(key) then return end
@@ -304,7 +319,7 @@ function Bind:CreateUI()
 
     local help = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     help:SetPoint("TOPLEFT", status, "BOTTOMLEFT", 0, -5)
-    help:SetText("ESC = cancel  |  Delete = clear hovered  |  Left/Right click excluded")
+    help:SetText("ESC over button = clear  |  ESC elsewhere = cancel  |  Left/Right click excluded")
 
     local save = CreateFrame("Button", "DFRL_MouseoverKeybindSave", panel, "UIPanelButtonTemplate")
     save:SetWidth(124)
@@ -431,7 +446,7 @@ function Bind:Start()
             Bind:RefreshVisibility()
         end
     end)
-    Say("Enabled. Save Changes confirms, ESC cancels, Delete clears; right-click excluded.")
+    Say("Enabled. ESC clears a hovered button; ESC away cancels. Save Changes confirms.")
 end
 
 function Bind:RefreshVisibility()

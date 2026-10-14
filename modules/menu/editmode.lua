@@ -155,13 +155,15 @@ DFRL.InitEditModeMenu = function()
     local originalToggle = ToggleGameMenu
     _G.ToggleGameMenu = function()
         local hoverbind = DFRL.hoverbind
-        if hoverbind and hoverbind.active then
-            hoverbind:Cancel()  -- Escape must discard unconfirmed bindings
+        -- Always swallow a second delivery of the same ESC first. Otherwise
+        -- a hovered button could be cleared twice, or the menu could open
+        -- immediately after a keyboard-handler cancellation.
+        if hoverbind and hoverbind.escapeGuard then
             return
         end
-        if hoverbind and hoverbind.escapeGuard then
-            hoverbind.escapeGuard = false
-            return -- absorb the matching global ESC after OnKeyDown cancellation
+        if hoverbind and hoverbind.active then
+            hoverbind:HandleKey("ESCAPE")
+            return
         end
         if Edit:IsActive() then
             -- First Escape cancels an open Yes/No dialog; a subsequent Escape

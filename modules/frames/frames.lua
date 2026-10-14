@@ -259,6 +259,50 @@ DFRL:NewMod("Frames", 2, function()
             return true
         end
 
+        local function FrameLabel(frame)
+            -- User-facing labels are independent from frame IDs and do not
+            -- alter frame position persistence or movement.
+            if frame == DFRL.mainBar then return "Main Action Bar" end
+            if frame == DFRL.newPetBar then return "Pet Bar" end
+            if frame == DFRL.newShapeshiftBar then return "Stance / Form Bar" end
+            if frame == DFRL.xpBar then return "Experience Bar" end
+            if frame == DFRL.repBar then return "Reputation Bar" end
+            if frame == DFRL.castbar then return "Player Cast Bar" end
+            if frame == DFRL.targetCastbar then return "Target Cast Bar" end
+            if frame == DFRL.microMenuContainer then return "Micro Menu" end
+            if frame == DFRL.netStatsFrame then return "Network Statistics" end
+            if frame == DFRL.topPanel then return "Top Panel" end
+            if frame == DFRL.questframe then return "Quest Tracker" end
+            if frame == DFRL.PWB_Panel then return "PWB Panel" end
+
+            local named = {
+                PlayerFrame = "Player Frame",
+                TargetFrame = "Target Frame",
+                TargetofTargetFrame = "Target of Target",
+                MultiBarBottomLeft = "Bottom Left Action Bar",
+                MultiBarBottomRight = "Bottom Right Action Bar",
+                MultiBarLeft = "Left Action Bar",
+                MultiBarRight = "Right Action Bar",
+                MainMenuBarBackpackButton = "Backpack",
+                Minimap = "Minimap",
+                QuestTimerFrame = "Quest Timer",
+                TempEnchant1 = "Temporary Enchants",
+            }
+            local name = frame:GetName()
+            if name and named[name] then return named[name] end
+            local party = name and string.match(name, "^PartyMemberFrame(%d+)$")
+            if party then return "Party Member " .. party end
+            local buffs = name and string.match(name, "^BuffButton(%d+)$")
+            if buffs then return "Buff Group " .. buffs end
+            if name then
+                -- Readable fallback for third-party and future UI elements.
+                local label = string.gsub(name, "([a-z])([A-Z])", "%1 %2")
+                label = string.gsub(label, "([A-Za-z])(%d+)", "%1 %2")
+                return label
+            end
+            return "Movable Element"
+        end
+
         local function MakeFrameMovable(frame)
             if not frame then return end
             frame:EnableMouse(true)
@@ -279,6 +323,16 @@ DFRL:NewMod("Frames", 2, function()
             })
             overlay:SetBackdropColor(1, .82, 0, .5)
             overlay:SetBackdropBorderColor(1, .82, 0, 1)
+
+            -- A small central caption identifies the drag target without
+            -- changing the underlying button, anchor, or visibility.
+            local nameText = overlay:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+            nameText:SetPoint("CENTER", overlay, "CENTER", 0, 0)
+            nameText:SetText(FrameLabel(frame))
+            nameText:SetTextColor(1, 1, 1)
+            nameText:SetShadowColor(0, 0, 0, 1)
+            nameText:SetShadowOffset(1, -1)
+            overlay.nameText = nameText
             overlay:Hide()
 
             overlay:SetScript("OnMouseDown", function()

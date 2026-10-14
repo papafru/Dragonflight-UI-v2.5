@@ -14,15 +14,15 @@ This fix targets stock WoW 1.12 and the 1.18 client. It is isolated from main un
 ## Mouseover Keybindings
 
 - Right-click and left-click are never binding inputs (including modifier combinations); middle mouse and mouse wheel continue to work.
+- **Escape over a hovered action button clears that action's current keybindings as a pending, reversible edit without leaving binding mode. Escape away from all buttons cancels the session and rolls back every pending edit.** Delete/Backspace also clears a hovered action.
 - Live binding changes are provisional until Save Changes. Cancel, Escape, the /kb toggle, or an Edit Mode handoff roll back every changed key.
 - Rollback uses an original per-key assignment journal, including unrelated actions displaced by collisions. First remove touched keys, then restore their original commands.
-- Delete/Backspace clears the hovered command as an unsaved edit.
 - Save Changes is disabled until the first edit; SaveBindings is invoked once only on explicit confirmation. A failed SaveBindings leaves the changes pending; a failed rollback is reported.
-- Both keyboard-frame ESC and the menu's ToggleGameMenu ESC path cancel. An automatically expiring guard prevents the same keypress from opening a second menu.
+- Both keyboard-frame ESC and the menu's ToggleGameMenu ESC path use the same hover-aware behavior. A one-frame deduplication guard prevents a single physical Escape from clearing twice or opening the game menu after cancellation.
 
 ## Validation
 
-- tests/editmode_preview.lua mocks initially hidden frames, optional list holes, event-driven visibility refresh, dragging, castbar exceptions, and cleanup when targets change.
+- tests/editmode_preview.lua mocks initially hidden frames, optional list holes, event-driven visibility refresh, dragging, castbar exceptions, and cleanup when targets change. The movable overlays also display human-readable labels for frames, action bars, party members, buffs, minimap and extra addon frames.
 - tests/editmode_keybind.lua mocks several binding edits, reassignment collisions, alternate bindings, cancellation, saving, save failure, right-click suppression, and both ESC routes.
 - GitHub Actions validates Lua 5.1 syntax and the previous four regression suites alongside these tests.
 - Real WoW 1.18 client testing is mandatory before merging this branch.
