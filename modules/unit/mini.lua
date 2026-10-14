@@ -289,7 +289,6 @@ DFRL:NewMod("Mini", 1, function()
                 TargetofTargetFrame.name:SetText(AbbreviateName(UnitName("targettarget")))
             end
             Setup:UpdateTargetOfTargetTexts()
-            if DFRL.unitFrameSkins then DFRL.unitFrameSkins:UpdateLayout("tot") end
         end)
 
         TargetofTargetTexture:SetTexCoord(0, 1, 0, 1)
@@ -641,10 +640,6 @@ DFRL:NewMod("Mini", 1, function()
     end
 
     Setup:Run()
-    -- Attach only after the Mini module has created its custom ToT bars.
-    if DFRL.InitUnitFrameSkins then
-        DFRL.InitUnitFrameSkins("tot", Setup.totHealthBar, Setup.totManaBar)
-    end
 
     -- callbacks
     local callbacks = {}
