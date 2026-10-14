@@ -43,6 +43,7 @@ function methods:SetText(t) self.text=t end
 function methods:SetTextColor(...) end
 function methods:SetJustifyH(x) self.justify=x end
 function methods:SetVertexColor(...) self.color={...} end
+function methods:SetTexture(...) self.texture={...} end
 function methods:Enable() self.enabled=true end
 function methods:Disable() self.enabled=false end
 function methods:CreateFontString()
