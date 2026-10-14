@@ -263,6 +263,7 @@ function DFRL:VersionCheckDB()
 end
 
 function DFRL:SetTempDB(mod, key, value)
+    if self.suppressGuiWrites then return end
     if not (self.theme and self.theme:WriteOverride(mod, key, value)) then
         self.tempDB[mod][key] = value
     end
@@ -272,6 +273,7 @@ function DFRL:SetTempDB(mod, key, value)
 end
 
 function DFRL:SetTempDBNoCallback(mod, key, value)
+    if self.suppressGuiWrites then return end
     if not self.tempDB[mod] then
         self.tempDB[mod] = {}
     end

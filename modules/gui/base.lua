@@ -25,7 +25,7 @@ DFRL:NewMod("Gui-base", 2, function()
             BACKGROUND_ALPHA = 0.8,
             RIGHT_TEX_DIMMED_ALPHA = 0.4,
 
-            TAB_VERTICAL_SPACING = 35,
+            TAB_VERTICAL_SPACING = 31,
             TAB_GROUP_SEPARATOR = 20,
             TITLE_FRAME_OFFSET = 200,
             SUB_FRAME_OFFSET = 20,
@@ -86,6 +86,7 @@ DFRL:NewMod("Gui-base", 2, function()
             [13] = "Third Party",
             [14] = "Unitframes",
             [15] = "Xprep",
+            [16] = "Themes",
         }
     }
 
@@ -574,6 +575,7 @@ DFRL:NewMod("Gui-base", 2, function()
     -- EXPOSE
     --=================
     DFRL.gui.Base = Setup
+    if DFRL.InitThemeSettings then DFRL.InitThemeSettings(Setup) end
     DFRLSetup = Setup -- Need to move this to .gui
 
     --=================
