@@ -12,6 +12,11 @@ local function Base(t,shown)
     local obj={kind=t,shown=shown~=false,points={},children={},mouse=true}
     function obj:SetTexture(path) self.path=path end
     function obj:SetVertexColor(...) self.color={...} end
+    function obj:SetAlpha(a) self.alpha=a end
+    function obj:GetAlpha() return self.alpha or 1 end
+    function obj:SetBlendMode(m) self.blend=m end
+    function obj:GetBlendMode() return self.blend end
+    function obj:GetHighlightTexture() return self.highlight end
     function obj:SetHeight(h) self.height=h end
     function obj:SetWidth(w) self.width=w end
     function obj:SetPoint(...) table.insert(self.points,{...}) end
@@ -40,6 +45,8 @@ function CreateFrame(kind,name,parent)
 end
 local initializedCallbacks={}
 local selected, listeners=nil,{}
+local activeHighlightColor={.5,.72,.88}
+local activeHighlightShow=true
 _G.DFRL={
     theme={
         GetSelected=function() return selected end,
@@ -47,12 +54,14 @@ _G.DFRL={
     },
     callbacks={},
     GetTempDB=function(_,module,key)
-        if module=="Bars" and key=="highlightColor" then return {.5,.72,.88} end
+        if module=="Bars" and key=="highlightColor" then return activeHighlightColor end
+        if module=="Bars" and key=="highlightShow" then return activeHighlightShow end
     end,
     NewCallbacks=function(_,mod,callbacks)
         eq(mod,"Bars","Register only bars callback")
         initializedCallbacks=callbacks
-        callbacks.highlightColor({.5,.72,.88})
+        callbacks.highlightColor(activeHighlightColor)
+        callbacks.highlightShow(activeHighlightShow)
     end,
 }
 local function changeTheme(id)
@@ -66,6 +75,9 @@ local function Button(name,originalShown)
     local cb=function() end
     button.clickHandler=cb
     button.DFRL_BorderOverlay=Base("Texture",originalShown)
+    button.highlight=Base("Texture")
+    button.highlight.blend="ADD"
+    button.highlight.alpha=1
     _G[name]=button
     return button
 end
@@ -115,6 +127,10 @@ eq(DFRL_ActionButtonBorder1.shown,false,"Modern hides main bar fancy border")
 eq(DFRL_ActionButtonBg1.shown,false,"Modern hides main bar existing background")
 eq(multi.DFRL_BorderOverlay.shown,false,"Modern applies to multibar")
 eq(skins.entries[1].lines[1].color[1],.5,"Modern tint uses existing highlight color")
+eq(initializedCallbacks.highlightShow~=nil,true,"New hover visibility callback registered")
+eq(main1.highlight.color[1],.5,"Native hover receives Modern color")
+eq(main1.highlight:GetAlpha(),1,"Hover is enabled by default")
+eq(main1.highlight:GetBlendMode(),"ADD","Normal colored hover stays additive")
 -- Repeated Modern selection must not overwrite the captured baseline state.
 changeTheme("modern")
 eq(#skins.entries,3,"No new entries on repeated style choice")
@@ -122,6 +138,32 @@ eq(created,createdAfterInit,"Theme switching allocates no frames")
 eq(textures,texturesAfterInit,"Theme switching allocates no textures")
 DFRL.actionButtonSkins:Tint({.2,.5,.9})
 eq(skins.entries[1].lines[1].color[1],.2,"Existing color property recolors border")
+-- Changing highlight color must recolor BOTH native hover and skin border.
+activeHighlightColor={0,0,0}
+initializedCallbacks.highlightColor(activeHighlightColor)
+eq(main1.highlight.color[1],0,"Black highlight is genuinely zero red")
+eq(main1.highlight.color[2],0,"Black highlight is genuinely zero green")
+eq(main1.highlight.color[3],0,"Black highlight is genuinely zero blue")
+eq(main1.highlight:GetBlendMode(),"BLEND","Black uses visible alpha blend, not ADD")
+eq(skins.entries[1].lines[1].color[1],0,"Black recolors Modern border")
+activeHighlightShow=false
+initializedCallbacks.highlightShow(activeHighlightShow)
+eq(main1.highlight:GetAlpha(),0,"Show Highlights off conceals native hover")
+eq(multi.highlight:GetAlpha(),0,"Off conceals multibar hover")
+eq(skins.entries[1].lines[1].color[1],.27,"Modern border remains neutral when hover disabled")
+activeHighlightColor={1,0,0}
+initializedCallbacks.highlightColor(activeHighlightColor)
+eq(main1.highlight.color[1],1,"Color changes still recorded while hidden")
+eq(main1.highlight:GetAlpha(),0,"Changing color does not unhide disabled hover")
+eq(main1.highlight:GetBlendMode(),"ADD","Colored hover restores additive blend")
+eq(skins.entries[1].lines[1].color[1],.27,"Hidden hover never recolors Modern borders")
+activeHighlightShow=true
+initializedCallbacks.highlightShow(activeHighlightShow)
+eq(main1.highlight:GetAlpha(),1,"Re-enable restores visible hover")
+eq(main1.highlight.color[1],1,"Re-enable restores last selected red")
+eq(skins.entries[1].lines[1].color[1],1,"Re-enable restores chosen Modern border tint")
+activeHighlightColor={.5,.72,.88}
+initializedCallbacks.highlightColor(activeHighlightColor)
 changeTheme("fantasy")
 eq(skins.entries[1].holder.shown,false,"Fantasy hides modern overlay")
 eq(main1.DFRL_BorderOverlay.shown,true,"Restores originally visible main overlay")
@@ -130,6 +172,12 @@ eq(DFRL_ActionButtonBorder1.shown,true,"Restores original main bar border")
 eq(DFRL_ActionButtonBg1.shown,false,"Restores originally hidden main bar background")
 eq(multi.DFRL_BorderOverlay.shown,true,"Restores multibar overlay")
 eq(main1.clickHandler,beforeClick,"No action button handler modification")
+activeHighlightShow=false
+initializedCallbacks.highlightShow(activeHighlightShow)
+eq(main1.highlight:GetAlpha(),0,"Fantasy's hover toggle works independently of Modern border")
+activeHighlightShow=true
+initializedCallbacks.highlightShow(activeHighlightShow)
+eq(main1.highlight:GetAlpha(),1,"Fantasy hover re-enabled without theme disruption")
 changeTheme("modern")
 changeTheme(nil)
 eq(skins.entries[1].holder.shown,false,"Existing Appearance removes modern overlay")

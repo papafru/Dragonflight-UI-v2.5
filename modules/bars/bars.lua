@@ -8,6 +8,7 @@ DFRL:NewDefaults("Bars", {
     mainBarSpacing = {6, "slider", {0, 20}, nil, "mainbar", 5, "Adjusts spacing between main action bar buttons", nil, nil},
     mainBarAlpha = {1, "slider", {0.1, 1}, nil, "mainbar", 6, "Adjusts transparency of main action bar", nil, nil},
     mainBarGrid = {1, "slider", {1, 6}, nil, "mainbar", 7, "Changes the grid layout of main action bar", nil, nil},
+    highlightShow = {true, "checkbox", nil, nil, "mainbar", 7.5, "Show or hide action button hover highlights", nil, nil, "Show Highlights"},
     highlightColor = {{1, 0.82, 0}, "colour", nil, nil, "mainbar", 8, "Changes the colour of action button highlights", nil, nil},
     multiBarOneShow = {false, "checkbox", nil, nil, "multibar 1", 9, "Show or hide bottom left action bar", nil, nil},
     multiBarOneScale = {1, "slider", {0.2, 2}, nil, "multibar 1", 10, "Adjusts scale of bottom left action bar", nil, nil},
@@ -1237,14 +1238,33 @@ DFRL:NewMod("Bars", 1, function()
             end
         end
 
-        callbacks.highlightColor = function(value)
-            Setup.hightlightColor = value
+        local function RefreshButtonHighlights()
+            local color = DFRL:GetTempDB("Bars", "highlightColor") or {1, .82, 0}
+            if type(color) ~= "table" or type(color[1]) ~= "number"
+                or type(color[2]) ~= "number" or type(color[3]) ~= "number" then
+                color = {1, .82, 0}
+            end
+            local visible = DFRL:GetTempDB("Bars", "highlightShow") ~= false
+            local black = color[1] == 0 and color[2] == 0 and color[3] == 0
             helpers.iterateButtons(function(button)
                 local highlight = button:GetHighlightTexture()
                 if highlight then
-                    highlight:SetVertexColor(unpack(value))
+                    highlight:SetVertexColor(color[1], color[2], color[3])
+                    -- Black with ADD blending is invisible. BLEND makes
+                    -- a black highlight visibly darken the hovered icon.
+                    highlight:SetBlendMode(black and "BLEND" or "ADD")
+                    highlight:SetAlpha(visible and 1 or 0)
                 end
             end)
+        end
+
+        callbacks.highlightColor = function(value)
+            Setup.hightlightColor = value
+            RefreshButtonHighlights()
+        end
+
+        callbacks.highlightShow = function(value)
+            RefreshButtonHighlights()
         end
 
         callbacks.mainBarGrid = function(value)

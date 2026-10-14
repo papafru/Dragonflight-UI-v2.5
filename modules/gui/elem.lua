@@ -768,7 +768,8 @@ DFRL:NewMod("Gui-elem", 3, function()
                     element.text:SetText(value)
                 elseif data.type == "colour" then
                     if type(value) == "table" and table.getn(value) >= 3 then
-                        for i = 1, 30 do
+                        for i = 1, (element.COLOR_COUNT or
+                            (element.BASIC_COLORS and table.getn(element.BASIC_COLORS)) or 0) do
                             local color = element.BASIC_COLORS and element.BASIC_COLORS[i]
                             if color and color[1] == value[1] and color[2] == value[2] and color[3] == value[3] then
                                 element:SetValue(i)

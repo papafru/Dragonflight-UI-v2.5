@@ -47,7 +47,7 @@ end
 -- intentionally absent. Future visual skins can expand this catalog safely.
 Theme.presets = {
     fantasy = {
-        Bars = {barsDarkMode = 0, barsColor = {1, 1, 1}, highlightColor = {1, .82, 0}, showGryphoon = true},
+        Bars = {barsDarkMode = 0, barsColor = {1, 1, 1}, highlightColor = {1, .82, 0}, highlightShow = true, showGryphoon = true},
         Bags = {bagDarkMode = 0, bagColor = {1, 1, 1}},
         Cast = {castDarkMode = 0, castColor = {.9, .9, .9}},
         Chat = {chatDarkMode = 0, chatColor = {1, 1, 1}},
@@ -57,7 +57,7 @@ Theme.presets = {
         Xprep = {xprepDarkMode = 0, xprepColor = {1, 1, 1}},
     },
     modern = {
-        Bars = {barsDarkMode = .85, barsColor = {.76, .82, .9}, highlightColor = {.5, .72, .88}, showGryphoon = false},
+        Bars = {barsDarkMode = .85, barsColor = {.76, .82, .9}, highlightColor = {.5, .72, .88}, highlightShow = true, showGryphoon = false},
         Bags = {bagDarkMode = .85, bagColor = {.82, .86, .93}},
         Cast = {castDarkMode = .8, castColor = {.68, .79, .9}},
         Chat = {chatDarkMode = .8, chatColor = {.85, .9, 1}},
