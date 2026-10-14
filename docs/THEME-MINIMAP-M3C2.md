@@ -27,3 +27,17 @@
 - **In-game test:** open Modern Dark and confirm square map, slim rim and charcoal header. Verify zone text/time, mouse clicks, mousewheel zoom, tracking, mail, addon collector and Edit Mode movement. Switch to Fantasy and Existing Appearance, then return to Modern. Change the Map square checkbox in Modern and verify override works; `/reload` while Modern is selected.
 
 **Do not merge before screenshot approval and real-client smoke tests.**
+
+
+## Zone and clock calibration (client screenshot follow-up)
+
+The first 1.18 screenshot confirmed the square minimap and lean outline, but the green zone name was too close to the left edge of the charcoal header, and long names could extend into the clock. The legacy Map module placed both fontstrings independently without enforcing space between them.
+
+- A **Modern-only adaptive header layout** adds 5 UI units of left breathing room to the configured `zoneTextX` and 4 to the right-hand clock margin, and lifts each label by 2 UI units, preserving the user's individual offset settings.
+- The usable zone width is recalculated from the existing top panel's **actual width**, plus the current clock text width (24h or 12h) and a fixed separation. The zone's clickable button and fontstring share the bounded width, so text doesn't overlap the time display.
+- For long zone names, the original FontString font family and color are preserved and the font size is reduced *only as necessary* down to 7 UI units, without replacing the actual zone text, its native updates, hover tooltip, or custom font configuration. A narrow user-configured header still clips within the reserved name area rather than covering the clock.
+- Reflow happens on the existing Map clock refresh (every five seconds, only if the name, clock width or panel geometry changed) and after the existing font, position, width, height, clock format or visibility callbacks. No new `OnUpdate` handler is added.
+- Switching to Fantasy or Existing Appearance restores the legacy zone/button widths, the selected normal font size and the original X/Y anchors of both labels. No saved variable schema or additional per-character state is introduced.
+- The regression tests now model 24h and 12h times, narrow/wide headers, long text fitting, custom offsets, no texture allocation during reflow, and exact switching back to Fantasy.
+
+**The client must confirm the zone text is legible and doesn't overlap the clock, including a longer zone name, before PR #7 is merged.**

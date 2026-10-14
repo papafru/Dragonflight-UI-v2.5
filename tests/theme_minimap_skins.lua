@@ -32,6 +32,17 @@ function methods:IsShown() return self.shown end
 function methods:SetVertexColor(...) self.color={...} end
 function methods:GetVertexColor() return unpack(self.color) end
 function methods:SetPoint(...) table.insert(self.points,{...}) end
+function methods:ClearAllPoints() self.points={} end
+function methods:GetPoint(i) return unpack(self.points[i]) end
+function methods:SetFont(path,size,flags)
+ self.fontPath=path;self.fontSize=size;self.fontFlags=flags
+end
+function methods:GetFont() return self.fontPath,self.fontSize,self.fontFlags end
+function methods:SetText(text) self.text=text end
+function methods:GetText() return self.text end
+function methods:GetStringWidth()
+ return #(self.text or "")*(self.fontSize or 10)*.6
+end
 function methods:SetAllPoints(p) self.allPoints=p end
 function methods:SetWidth(x) self.width=x end
 function methods:SetHeight(y) self.height=y end
@@ -46,7 +57,9 @@ local function read(path)
  file:close()
  return text
 end
-DFRL={tempDB={Map={mapSquare=false,mapShadow=true,alphaShadow=.3}},callbacks={},gui={}}
+DFRL={tempDB={Map={mapSquare=false,mapShadow=true,alphaShadow=.3,
+ zoneTextX=4,zoneTextY=-3,zoneTextSize=10,timeX=-4,timeY=-3,
+ timeSize=10,mapTime=true}},callbacks={},gui={}}
 function DFRL:GetTempDB(mod,key)
  local raw=self.tempDB[mod] and self.tempDB[mod][key]
  return self.theme and self.theme:Resolve(mod,key,raw) or raw
@@ -83,9 +96,22 @@ local background=panel:CreateTexture(nil,"BACKGROUND")
 border:SetAlpha(.9)
 shadow:SetAlpha(.3)
 background:SetAlpha(.72)
+-- Mock the actual Blizzard zone Button/FontString and the addon clock.
+MinimapZoneTextButton=Region(panel,"Frame")
+MinimapZoneTextButton:SetWidth(145)
+MinimapZoneTextButton:SetPoint("LEFT",panel,"LEFT",4,-3)
+MinimapZoneText=Region(MinimapZoneTextButton,"FontString")
+MinimapZoneText:SetWidth(145)
+MinimapZoneText:SetFont("Fonts\\FRIZQT__.TTF",10,"")
+MinimapZoneText:SetText("Dwarven District")
+local timeText=Region(panel,"FontString")
+timeText:SetText("01:30")
+timeText:SetFont("Fonts\\FRIZQT__.TTF",10,"")
+timeText:SetPoint("RIGHT",panel,"RIGHT",-4,-3)
 local setup={
  texpath="Interface\\AddOns\\DragonflightUI-Reforged\\media\\tex\\minimap\\",
  minimapBorder=border,minimapShadow=shadow,bgTexture=background,topPanel=panel,
+ timeText=timeText,
 }
 local mapSource=read("modules/map/map.lua")
 -- Compile the real legacy callbacks in a tiny isolated module environment.
@@ -117,6 +143,10 @@ eq(shadow:GetAlpha(),.3,"Neutral keeps configured shadow")
 eq(background:GetAlpha(),.72,"Neutral keeps ornate top panel")
 eq(Minimap.mask,"Textures\\MinimapMask","Neutral map keeps circular mask")
 eq(skin.entry.panel:IsShown(),false,"Modern panel hidden initially")
+eq(MinimapZoneTextButton.width,145,"Neutral retains original zone button width")
+eq(MinimapZoneText.width,145,"Neutral retains original text width")
+eq(MinimapZoneText.fontSize,10,"Neutral retains configured text size")
+eq(timeText.points[1][4],-4,"Neutral clock uses original settings X")
 for _,line in ipairs(skin.entry.edges) do eq(line:IsShown(),false,"No modern lines initially") end
 
 eq(DFRL.theme:Select("modern"),true,"Modern theme selectable")
@@ -134,6 +164,16 @@ eq(skin.entry.panel.color[1],.045,"Graphite header background")
 eq(skin.entry.panel.color[4],.96,"Graphite header opacity")
 eq(skin.entry.divider.layer,"ARTWORK","Divider uses named vanilla draw layer")
 eq(skin.entry.square,true,"Skin tracks square mode")
+eq(MinimapZoneTextButton.points[1][4],9,"Modern zone has additional left padding")
+eq(MinimapZoneTextButton.points[1][5],-1,"Modern zone label is lifted into the slim header")
+eq(timeText.points[1][4],-8,"Modern clock has right-side padding")
+eq(timeText.points[1][5],-1,"Modern clock centered vertically")
+eq(MinimapZoneText.width,117,"Header reserves gap and time width for zone")
+eq(MinimapZoneTextButton.width,117,"Clickable zone button never overlaps clock")
+eq(MinimapZoneText.fontSize,10,"Short zone names preserve preferred font size")
+local headerRegions=regions
+skin:UpdateHeader()
+eq(regions,headerRegions,"Reflow allocates no additional textures")
 for i,line in ipairs(skin.entry.edges) do
  eq(line:IsShown(),true,"Modern has thin square edge")
  eq(line.layer,"OVERLAY","Map border on supported named draw layer")
@@ -144,6 +184,42 @@ local textures=regions
 DFRL.theme:Select("modern")
 eq(regions,textures,"Repeated theme selection creates no assets")
 eq(shadow:GetAlpha(),0,"Repeated selection keeps shadow concealed")
+-- A longer district name should shrink its font before it can collide
+-- with the time label. The original zone string must remain untouched.
+MinimapZoneText:SetText("Stormwind Trade District")
+skin:UpdateHeader()
+eq(MinimapZoneText:GetText(),"Stormwind Trade District","Native zone name remains intact")
+eq(MinimapZoneText.fontSize,8,"Long zone automatically reduces font size")
+eq(MinimapZoneText:GetStringWidth() <= MinimapZoneText.width,true,
+ "Fitted zone name does not enter reserved clock space")
+-- Simulate a configured 12-hour time string and panel resize.
+timeText:SetText("01:30 PM")
+skin:UpdateHeader()
+eq(MinimapZoneText.width < 117,true,"Longer clock reserves more header space")
+eq(MinimapZoneText.fontSize <= 8,true,"Longer clock refits zone font")
+panel:SetWidth(240)
+skin:UpdateHeader()
+eq(MinimapZoneText.width > 117,true,"Header expands automatically with panel width")
+eq(MinimapZoneText.fontSize,10,"Wide header restores preferred font size")
+-- Reflow also respects the player's layout-offset settings.
+DFRL.tempDB.Map.zoneTextX=7
+DFRL.tempDB.Map.zoneTextY=-2
+DFRL.tempDB.Map.timeX=-7
+DFRL.tempDB.Map.timeY=-1
+skin:UpdateHeader(true)
+eq(MinimapZoneTextButton.points[1][4],12,"Modern adds pad to custom zone X")
+eq(MinimapZoneTextButton.points[1][5],0,"Modern centers custom zone Y")
+eq(timeText.points[1][4],-11,"Modern offsets custom clock X")
+eq(timeText.points[1][5],1,"Modern offsets custom clock Y")
+-- Restore defaults before testing the existing theme transitions.
+DFRL.tempDB.Map.zoneTextX=4
+DFRL.tempDB.Map.zoneTextY=-3
+DFRL.tempDB.Map.timeX=-4
+DFRL.tempDB.Map.timeY=-3
+panel:SetWidth(180)
+timeText:SetText("01:30")
+MinimapZoneText:SetText("Dwarven District")
+skin:UpdateHeader(true)
 Minimap:SetWidth(234)
 Minimap:SetHeight(234)
 eq(skin.entry.edges[1].points[1][2],Minimap,"Border anchored to dynamically sized minimap")
@@ -176,6 +252,13 @@ eq(border:GetAlpha(),.9,"Fantasy restores ornate border")
 eq(shadow:GetAlpha(),.65,"Fantasy restores most recent shadow slider")
 eq(background:GetAlpha(),.72,"Fantasy restores original top panel art")
 eq(skin.entry.panel:IsShown(),false,"Fantasy hides flat Modern panel")
+eq(MinimapZoneTextButton.width,145,"Fantasy restores zone button width")
+eq(MinimapZoneText.width,145,"Fantasy restores zone text width")
+eq(MinimapZoneText.fontSize,10,"Fantasy restores preferred zone font size")
+eq(MinimapZoneTextButton.points[1][4],4,"Fantasy restores original zone X")
+eq(MinimapZoneTextButton.points[1][5],-3,"Fantasy restores original zone Y")
+eq(timeText.points[1][4],-4,"Fantasy restores original clock X")
+eq(timeText.points[1][5],-3,"Fantasy restores original clock Y")
 eq(skin.entry.divider:IsShown(),false,"Fantasy hides modern divider")
 for _,line in ipairs(skin.entry.edges) do eq(line:IsShown(),false,"Fantasy hides thin square edges") end
 
@@ -194,6 +277,8 @@ eq(Minimap.mask,"Textures\\MinimapMask","Existing Appearance uses raw profile ci
 eq(background:GetAlpha(),.72,"Existing Appearance restores original header art")
 eq(border:GetAlpha(),.9,"Existing Appearance restores original border alpha")
 eq(skin.entry.panel:IsShown(),false,"No Modern matte in Existing Appearance")
+eq(MinimapZoneText.width,145,"Existing Appearance restores original label width")
+eq(timeText.points[1][4],-4,"Existing Appearance restores clock anchor")
 eq(DFRL.tempDB.Map.mapSquare,false,"Existing profile remains unmodified")
 
 -- Integration guards for real Map after construction and callback loading.
@@ -207,6 +292,10 @@ eq(string.find(mapSource,'DFRL.minimapSkins:Refresh()',1,true)~=nil,true,
 local toc=read("DragonflightUI-Reforged.toc")
 eq(string.find(toc,'modules\\map\\skins.lua',1,true)~=nil,true,
  "TOC loads Map skins module")
+eq(string.find(mapSource,'DFRL.minimapSkins:UpdateHeader()',1,true)~=nil,true,
+ "Existing five-second map timer refreshes zone text if area changes")
+eq(string.find(mapSource,'DFRL.minimapSkins:UpdateHeader(true)',1,true)~=nil,true,
+ "Existing font/size/time callbacks trigger Modern header reflow")
 eq(string.find(mapSource,'Minimap:EnableMouseWheel(true)',1,true)~=nil,true,
  "Legacy zoom interaction remains")
 eq(string.find(mapSource,'Setup:PizzaWorldBuffs()',1,true)~=nil,true,

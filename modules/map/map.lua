@@ -131,6 +131,11 @@ DFRL:NewMod("Map", 1, function()
                 local use12h = DFRL:GetTempDB('Map', 'timeFormat12h')
                 local localTime = use12h and date('%I:%M %p') or date('%H:%M')
                 self.timeText:SetText(localTime)
+                -- Refit only when zone/time strings change; reuse the
+                -- existing 5-second clock update instead of new OnUpdate.
+                if DFRL.minimapSkins then
+                    DFRL.minimapSkins:UpdateHeader()
+                end
                 DFRL.activeScripts['MapTimeScript'] = true
             end)
 
@@ -809,6 +814,26 @@ DFRL:NewMod("Map", 1, function()
         callbacks.timeFormat12h = function(value)
             local localTime = value and string.gsub(date('%I:%M %p'), ' ', '  ') or date('%H:%M')
             Setup.timeText:SetText(localTime)
+        end
+
+        -- The old settings callbacks still own font, alignment, time format
+        -- and panel dimensions. Reflow Modern's header after a settings
+        -- change instead of overriding any user's configured values.
+        local headerKeys = {
+            "topPanelWidth", "topPanelHeight", "zoneTextSize",
+            "zoneTextX", "zoneTextY", "timeSize", "timeX", "timeY",
+            "timeFormat12h", "topPanelFont", "mapTime",
+        }
+        for _, key in ipairs(headerKeys) do
+            local callback = callbacks[key]
+            if callback then
+                callbacks[key] = function(value)
+                    callback(value)
+                    if DFRL.minimapSkins then
+                        DFRL.minimapSkins:UpdateHeader(true)
+                    end
+                end
+            end
         end
 
         -- execute callbacks
