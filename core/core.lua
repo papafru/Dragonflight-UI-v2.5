@@ -411,7 +411,7 @@ DFRL:SetScript("OnEvent", function()
         if boot then return end
         DFRL:InitTempDB()
         DFRL:RunMods()
-        print("Welcome to |cffffd200Dragonflight:|r Reforged.")
+        print("Welcome to |cffffd200" .. DFRL.displayName .. "|r.")
         print("Open menu via |cffddddddESC|r or |cffddddddSLASH DFRL|r.")
     end
     if event == "PLAYER_LOGOUT" then
