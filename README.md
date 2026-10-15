@@ -1,10 +1,10 @@
 # Dragonflight UI: Reforged v2.5
 
-**An enhanced version of Dragonflight UI: Reforged for classic-era World of Warcraft.** Built on the original addon, with new functionality, quality-of-life improvements, and more updates planned for the future.
+**An enhanced version of Dragonflight UI: Reforged for World of Warcraft Vanilla 1.12.** Built on the original addon, with new functionality, quality-of-life improvements, and more updates planned for the future.
 
 > **Current stable addon release: v1.3.6.** “v2.5” is the GitHub project name, **not** the in-game addon version. The original `DragonflightUI-Reforged` addon folder, in-game name, and SavedVariables remain unchanged for compatibility.
 
-[**Download the stable release**](https://github.com/papafru/DragonflightUI-Reforged-v2.5/releases/tag/v1.3.6) · [Experimental development (`testing`)](https://github.com/papafru/DragonflightUI-Reforged-v2.5/tree/testing)
+[**Download the stable release**](https://github.com/papafru/DragonflightUI-Reforged-v2.5/releases/tag/v1.3.6)
 
 ![Original Dragonflight UI: Reforged interface (upstream screenshot)](https://github.com/user-attachments/assets/5386c88c-9c1c-422b-84e4-e231772ee29e)
 
@@ -14,10 +14,9 @@
 
 These features are included in the **stable v1.3.6** release:
 
-- **New mouseover keybinding system:** Assign keybinds by hovering over action-bar buttons. This is an addition to Reforged, not merely an update to an existing keybinding feature.
-- **Safer binding changes:** Explicit **Save Changes** and **Cancel** controls. Escape clears a hovered button's binding provisionally; pressing Escape away from a bindable button cancels unsaved changes. Left and right mouse clicks cannot be assigned accidentally.
+- **New mouseover keybinding system:** Type `/kb` in chat to enter keybinding mode. Hover over an action-bar button and press the key or supported mouse button you want to assign. To remove a binding, hover over its button and press **Esc**, **Delete**, or **Backspace**. Click **Save Changes** to keep your new bindings, or **Cancel** to discard them. Pressing **Esc** away from a button also cancels unsaved changes.
 - **Improved Edit Mode:** Move supported UI elements with clearly labeled drag handles and more reliable position previews.
-- **Frame-positioning fixes:** More stable Edit Mode previews for Target, Target of Target, buffs, temporary enchant icons, and quest-related frames, including fixes for flickering elements.
+- **Frame-positioning fixes:** More stable Edit Mode previews for Target, Target of Target, buffs, temporary enchant icons, and quest-related frames.
 - **Preserved appearance:** The stable version keeps Reforged's original visuals rather than introducing unfinished redesigns.
 
 ## Installation
@@ -33,14 +32,14 @@ These features are included in the **stable v1.3.6** release:
 
 ## Future updates
 
-Development is **currently paused**. Experimental work is preserved in the [`testing` branch](https://github.com/papafru/DragonflightUI-Reforged-v2.5/tree/testing), including:
+Additional UI improvements are planned for future updates, including:
 
 - Optional **Modern Dark** visual theme, redesigned action-button and unit-frame styling.
 - Modernized Player/Target cast-bar appearance.
 - Thin, square minimap style and updated zone/time header.
 - Extra action-button highlight options, including a visibility toggle and black highlight color.
 
-**These experimental features are not included in the stable release** and are awaiting further in-game testing before any future release.
+**These features are not included in the current stable release.**
 
 ## Credits and project origins
 
