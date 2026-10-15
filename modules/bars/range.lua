@@ -12,7 +12,7 @@ DFRL:NewMod("RangeIndicator", 1, function()
     -- SETUP
     -- =================
     local Setup = {
-        texpath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\tex\\actionbars\\",
+        texpath = DFRL.addonPath .. "media\\tex\\actionbars\\",
         rangeIndicatorFrame = nil,
         rangeIndicatorUpdateTimer = 0,
         buttonTypes = {

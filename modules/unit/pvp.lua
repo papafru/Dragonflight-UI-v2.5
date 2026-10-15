@@ -5,8 +5,8 @@ DFRL:NewDefaults("PVPIcon", {
 
 DFRL:NewMod("PVPIcon", 1, function()
     local Setup = {
-        allianceTexture = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\tex\\unitframes\\UI-PVP-Alliance",
-        hordeTexture = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\tex\\unitframes\\UI-PVP-Horde"
+        allianceTexture = DFRL.addonPath .. "media\\tex\\unitframes\\UI-PVP-Alliance",
+        hordeTexture = DFRL.addonPath .. "media\\tex\\unitframes\\UI-PVP-Horde"
     }
 
     function Setup:UpdatePvPIcon(frame, unit)

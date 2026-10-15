@@ -64,7 +64,7 @@ DFRL:NewMod("Mini", 1, function()
 
     -- setup
     local Setup = {
-        path = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\tex\\unitframes\\",
+        path = DFRL.addonPath .. "media\\tex\\unitframes\\",
         healthPercentText = nil,
         healthValueText = nil,
         manaPercentText = nil,
@@ -803,27 +803,27 @@ DFRL:NewMod("Mini", 1, function()
     callbacks.frameFont = function(value)
         local fontPath
         if value == "Expressway" then
-            fontPath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\fnt\\Expressway.ttf"
+            fontPath = DFRL.addonPath .. "media\\fnt\\Expressway.ttf"
         elseif value == "Homespun" then
-            fontPath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\fnt\\Homespun.ttf"
+            fontPath = DFRL.addonPath .. "media\\fnt\\Homespun.ttf"
         elseif value == "Hooge" then
-            fontPath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\fnt\\Hooge.ttf"
+            fontPath = DFRL.addonPath .. "media\\fnt\\Hooge.ttf"
         elseif value == "Myriad-Pro" then
-            fontPath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\fnt\\Myriad-Pro.ttf"
+            fontPath = DFRL.addonPath .. "media\\fnt\\Myriad-Pro.ttf"
         elseif value == "Prototype" then
-            fontPath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\fnt\\Prototype.ttf"
+            fontPath = DFRL.addonPath .. "media\\fnt\\Prototype.ttf"
         elseif value == "PT-Sans-Narrow-Bold" then
-            fontPath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\fnt\\PT-Sans-Narrow-Bold.ttf"
+            fontPath = DFRL.addonPath .. "media\\fnt\\PT-Sans-Narrow-Bold.ttf"
         elseif value == "PT-Sans-Narrow-Regular" then
-            fontPath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\fnt\\PT-Sans-Narrow-Regular.ttf"
+            fontPath = DFRL.addonPath .. "media\\fnt\\PT-Sans-Narrow-Regular.ttf"
         elseif value == "RobotoMono" then
-            fontPath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\fnt\\RobotoMono.ttf"
+            fontPath = DFRL.addonPath .. "media\\fnt\\RobotoMono.ttf"
         elseif value == "BigNoodleTitling" then
-            fontPath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\fnt\\BigNoodleTitling.ttf"
+            fontPath = DFRL.addonPath .. "media\\fnt\\BigNoodleTitling.ttf"
         elseif value == "Continuum" then
-            fontPath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\fnt\\Continuum.ttf"
+            fontPath = DFRL.addonPath .. "media\\fnt\\Continuum.ttf"
         elseif value == "DieDieDie" then
-            fontPath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\fnt\\DieDieDie.ttf"
+            fontPath = DFRL.addonPath .. "media\\fnt\\DieDieDie.ttf"
         else
             fontPath = "Fonts\\FRIZQT__.TTF"
         end

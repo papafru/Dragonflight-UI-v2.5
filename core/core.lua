@@ -1,6 +1,20 @@
 -- mainframe
 DFRL = CreateFrame("Frame", nil, UIParent)
 
+-- Resolve the installation folder before loading any modules or media.
+local originalAddonName = "DragonflightUI-Reforged"
+local repoAddonName = "DragonflightUI-Reforged-v2.5"
+local originalInstalled, repoInstalled = false, false
+if type(GetNumAddOns) == "function" and type(GetAddOnInfo) == "function" then
+    for i = 1, GetNumAddOns() do
+        local installedName = GetAddOnInfo(i)
+        if installedName == originalAddonName then originalInstalled = true end
+        if installedName == repoAddonName then repoInstalled = true end
+    end
+end
+DFRL.addonName = (repoInstalled and not originalInstalled) and repoAddonName or originalAddonName
+DFRL.addonPath = "Interface\\AddOns\\" .. DFRL.addonName .. "\\"
+
 -- tables
 DFRL_PROFILES = {}
 DFRL_DB_SETUP = {}
@@ -35,7 +49,7 @@ local boot = false
 
 -- utility
 function DFRL:GetInfoOrCons(type)
-    local name = "DragonflightUI-Reforged"
+    local name = self.addonName
     if type == "name" then
         return name
     elseif type == "version" then
@@ -43,13 +57,13 @@ function DFRL:GetInfoOrCons(type)
     elseif type == "author" then
         return GetAddOnMetadata(name, "Author")
     elseif type == "path" then
-        return "Interface\\AddOns\\" .. name .. "\\"
+        return self.addonPath
     elseif type == "media" then
-        return "Interface\\AddOns\\" .. name .. "\\media\\"
+        return self.addonPath .. "media\\"
     elseif type == "tex" then
-        return "Interface\\AddOns\\" .. name .. "\\media\\tex\\"
+        return self.addonPath .. "media\\tex\\"
     elseif type == "font" then
-        return "Interface\\AddOns\\" .. name .. "\\media\\fnt\\"
+        return self.addonPath .. "media\\fnt\\"
     end
 end
 
@@ -402,7 +416,7 @@ DFRL:SetScript("OnEvent", function()
     if event == "VARIABLES_LOADED" then
         DFRL:UpdateShaguReady()
     end
-    if event == "ADDON_LOADED" and arg1 == "DragonflightUI-Reforged" then
+    if event == "ADDON_LOADED" and arg1 == DFRL.addonName then
         if boot then return end
         DFRL:InitTempDB()
         DFRL:RunMods()

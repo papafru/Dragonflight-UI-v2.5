@@ -18,8 +18,8 @@ DFRL:NewMod("Bags", 1, function()
         f:UnregisterEvent("PLAYER_ENTERING_WORLD")
 
         local Setup = {
-            texpath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\tex\\bags\\",
-            fontpath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\fnt\\",
+            texpath = DFRL.addonPath .. "media\\tex\\bags\\",
+            fontpath = DFRL.addonPath .. "media\\fnt\\",
 
             bagToggleButton = nil,
 

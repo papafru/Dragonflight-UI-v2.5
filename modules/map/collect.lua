@@ -6,7 +6,7 @@ DFRL:NewDefaults("Collector", {
 
 DFRL:NewMod("Collector", 1, function()
     local Setup = {
-        texpath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\tex\\minimap\\",
+        texpath = DFRL.addonPath .. "media\\tex\\minimap\\",
         collector = nil,
         toggleButton = nil,
         dragStartIndex = nil,

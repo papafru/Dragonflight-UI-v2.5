@@ -42,8 +42,8 @@ DFRL:NewMod("Xprep", 1, function()
         f2:UnregisterEvent("PLAYER_ENTERING_WORLD")
 
         local Setup = {
-            texpath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\tex\\xprep\\",
-            fontpath = "Interface\\AddOns\\DragonflightUI-Reforged\\media\\fnt\\",
+            texpath = DFRL.addonPath .. "media\\tex\\xprep\\",
+            fontpath = DFRL.addonPath .. "media\\fnt\\",
 
             xpBar = nil,
             xpBarBg = nil,
