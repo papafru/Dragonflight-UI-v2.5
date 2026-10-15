@@ -8,7 +8,7 @@
 
 - **Enhanced Edit Mode:** Move supported UI elements with readable drag-handle labels and improved position previews.
 - **Stable frame previews:** Target, Target of Target, buffs, temporary enchant icons, and quest-related frames can be repositioned without the Edit Mode flickering seen in earlier builds.
-- **Improved mouseover keybinding mode:** Assign bindings by hovering over action buttons, with explicit **Save Changes** and **Cancel** controls.
+- **NEW — Mouseover keybinding mode:** A newly added feature that did not exist in the original Reforged addon. Assign keybinds by hovering over action buttons, with explicit **Save Changes** and **Cancel** controls.
 - **Safer keybinding handling:** Escape clears a hovered action button's binding provisionally, or cancels unsaved changes when not hovering over a bindable button; left/right mouse clicks are protected.
 - **Reliable distribution:** Stable ZIP contains one correctly named `DragonflightUI-Reforged/` addon folder for manual or GitHub addon-manager installation.
 - **Automated validation:** Lua 5.1 syntax, keybinding/Edit Mode regressions, and stable addon packaging are checked in CI.
