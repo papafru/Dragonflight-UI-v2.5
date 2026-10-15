@@ -1,8 +1,8 @@
 ## Interface: 11200
-## Title: Dragonflight UI |cFFFF0000Reforged|r
-## Notes: Dragonflight UI for Turtle WoW
+## Title: Dragonflight UI |cFFFFD700v2.5|r
+## Notes: Enhanced Classic WoW UI with new mouseover keybinding and improved Edit Mode
 ## Version: 1.3.6
-## Author: Guzruul - Reforged by Stormhand
+## Author: Guzruul, Stormhand, papafru
 ## SavedVariables: DFRL_PROFILES, DFRL_DB_SETUP
 ## SavedVariablesPerCharacter: DFRL_CUR_PROFILE, DFRL_FRAMEPOS
 

@@ -119,7 +119,7 @@ self.menuframe:SetScript("OnHide", function()
 end)
 
 
-            local drBtn = DFRL.tools.CreateButton(self.menuframe, "|cFFFFD100DFUI:|r Reforged", self.btnw, self.btnh)
+            local drBtn = DFRL.tools.CreateButton(self.menuframe, "|cFFFFD100DFUI|r v2.5", self.btnw, self.btnh)
             drBtn:SetPoint("TOP", self.menuframe, "TOP", 0, -self.space)
             drBtn:SetScript("OnClick", function()
                 self.menuframe:Hide()

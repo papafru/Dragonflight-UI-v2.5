@@ -1,5 +1,6 @@
 -- mainframe
 DFRL = CreateFrame("Frame", nil, UIParent)
+DFRL.displayName = "Dragonflight UI v2.5"
 
 -- tables
 DFRL_PROFILES = {}
@@ -19,7 +20,7 @@ DFRL.performance = {}
 DFRL.activeScripts = {}
 DFRL.gui = {}
 
--- ShaguTweaks can load before or after Reforged depending on addon load order.
+-- ShaguTweaks can load before or after this addon depending on load order.
 DFRL.shagu = {
     ready = false,
     configReady = false,
@@ -35,8 +36,12 @@ local boot = false
 
 -- utility
 function DFRL:GetInfoOrCons(type)
+    -- This is the legacy installation folder / addon ID, not the displayed title.
+    -- Keep it unchanged so textures, metadata and existing setups still resolve.
     local name = "DragonflightUI-Reforged"
-    if type == "name" then
+    if type == "displayName" then
+        return self.displayName
+    elseif type == "name" then
         return name
     elseif type == "version" then
         return GetAddOnMetadata(name, "Version")

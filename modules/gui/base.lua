@@ -169,13 +169,13 @@ DFRL:NewMod("Gui-base", 2, function()
             self.dragonText:SetFont(self.font.. "BigNoodleTitling.ttf", self.CONSTANTS.TITLE_FONT_SIZE, "OUTLINE")
             self.dragonText:SetTextColor(1, .82, 0, 1)
             self.dragonText:SetPoint("LEFT", self.titleFrame, "LEFT", 30, 0)
-            self.dragonText:SetText("Dragonflight:")
+            self.dragonText:SetText("Dragonflight UI")
 
             self.reloadedText = self.titleFrame:CreateFontString(nil, "OVERLAY")
             self.reloadedText:SetFont(self.font.. "BigNoodleTitling.ttf", self.CONSTANTS.TITLE_FONT_SIZE, "OUTLINE")
             self.reloadedText:SetTextColor(1, 1, 1, 1)
             self.reloadedText:SetPoint("LEFT", self.dragonText, "RIGHT", 5, 0)
-            self.reloadedText:SetText("Reforged")
+            self.reloadedText:SetText("v2.5")
 
             local fadeOut = true
             local updateScript = function()
