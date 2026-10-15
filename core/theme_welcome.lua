@@ -25,7 +25,7 @@ function DFRL.ShowThemeWelcome()
 
     local heading = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     heading:SetPoint("TOP", frame, "TOP", 0, -18)
-    heading:SetText("WELCOME TO fruUI")
+    heading:SetText("WELCOME TO DRAGONFLIGHT UI")
     heading:SetTextColor(1, .82, .2)
 
     local subheading = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")

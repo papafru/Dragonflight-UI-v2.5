@@ -1,4 +1,4 @@
--- Integration/regression suite for fruUI theme foundation.
+-- Integration/regression suite for Dragonflight UI v2.5 theme foundation.
 -- Run: lua5.1 tests/theme_foundation.lua (or texlua tests/theme_foundation.lua)
 if not getfenv then getfenv = function() return _G end end
 if not setfenv then setfenv = function() end end

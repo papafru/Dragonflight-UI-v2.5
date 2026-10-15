@@ -1,0 +1,76 @@
+name: Dragonflight UI v2.5 Stable Validation and Release
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, stable/release-v1.3.6]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Lua 5.1 and ZIP tools
+        run: sudo apt-get update && sudo apt-get install -y lua5.1 zip unzip
+      - name: Verify pre-theme appearance and addon manifest
+        run: python3 scripts/verify_stable.py
+      - name: Parse every addon Lua file
+        run: find core data modules -type f -name '*.lua' -print0 | xargs -0 -n1 luac5.1 -p
+      - name: Test Edit Mode and keybinding behavior
+        run: |
+          lua5.1 tests/editmode_preview.lua
+          lua5.1 tests/editmode_keybind.lua
+      - name: Create addon-manager-ready ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST="dist/DragonflightUI-Reforged"
+          mkdir -p "$DEST"
+          for folder in art core data media modules; do
+            cp -a "$folder" "$DEST/"
+          done
+          cp DragonflightUI-Reforged.toc "$DEST/"
+          (cd dist && zip -qr DragonflightUI-Reforged-v1.3.6.zip DragonflightUI-Reforged)
+          test -s dist/DragonflightUI-Reforged-v1.3.6.zip
+          unzip -tq dist/DragonflightUI-Reforged-v1.3.6.zip
+          unzip -Z -1 dist/DragonflightUI-Reforged-v1.3.6.zip | python3 -c 'import sys; a=[x.strip() for x in sys.stdin]; assert all(x.startswith("DragonflightUI-Reforged/") for x in a); assert "DragonflightUI-Reforged/DragonflightUI-Reforged.toc" in a; print("PASS addon manager root folder")'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stable-addon-zip
+          path: dist/DragonflightUI-Reforged-v1.3.6.zip
+          if-no-files-found: error
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: stable-addon-zip
+          path: dist
+      - name: Publish tagged stable release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="$(awk '/^## Version:/{print $3; exit}' DragonflightUI-Reforged.toc)"
+          TAG="v$VERSION"
+          ZIP="dist/DragonflightUI-Reforged-v$VERSION.zip"
+          test -s "$ZIP"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; leaving it unchanged."
+          else
+            gh release create "$TAG" "$ZIP" --target "$GITHUB_SHA" \
+              --title "Dragonflight UI v2.5 $TAG (Stable)" --notes-file RELEASE_NOTES.md --latest
+          fi

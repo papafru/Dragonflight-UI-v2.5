@@ -1,4 +1,4 @@
--- fruUI: Edit Mode entry point and lightweight Retail-inspired toolbar.
+-- Dragonflight UI v2.5: Edit Mode entry point and lightweight Retail-inspired toolbar.
 -- Keep the menu integration separate from its native menu implementation.
 -- Frame movement/persistence remains in modules/frames/frames.lua.
 
@@ -124,7 +124,7 @@ DFRL.InitEditModeMenu = function()
     -- Reuse Blizzard's native modal dialog rather than permanently adding
     -- warning text to the compact Edit Mode toolbar.
     StaticPopupDialogs["DFRL_EDITMODE_RESET_POSITIONS"] = {
-        text = "Restore all fruUI movable elements to their default positions for this character?\n\nThis clears saved frame positions and reloads the UI. Other settings and keybindings are not changed.",
+        text = "Restore all movable UI elements to their default positions for this character?\n\nThis clears saved frame positions and reloads the UI. Other settings and keybindings are not changed.",
         button1 = YES,
         button2 = NO,
         OnAccept = function()

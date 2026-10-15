@@ -1,4 +1,4 @@
--- fruUI regression: transactional mouseover bindings, Lua 5.1 client mock.
+-- Dragonflight UI v2.5 regression: transactional mouseover bindings, Lua 5.1 client mock.
 if not table.getn then table.getn=function(t) return #t end end
 local n=0
 local function same(actual,expected,reason)

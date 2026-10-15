@@ -1,4 +1,4 @@
--- fruUI Milestone 3B: rectangular, portrait-free unit frame smoke tests.
+-- Dragonflight UI v2.5 Milestone 3B: rectangular, portrait-free unit frame smoke tests.
 -- Run with Lua 5.1: lua5.1 tests/theme_unit_skins.lua
 local checks = 0
 local function eq(actual, expected, message)

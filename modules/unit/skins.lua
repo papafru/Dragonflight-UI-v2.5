@@ -1,4 +1,4 @@
--- fruUI Modern Dark rectangular unit frames (WoW 1.12/1.18).
+-- Dragonflight UI v2.5 Modern Dark rectangular unit frames (WoW 1.12/1.18).
 -- Appearance only: preserve status-bar logic, portraits' runtime updates,
 -- unit frame anchors, targeting, rare/elite classification and module state.
 -- Do NOT create a NewMod; the settings grid has exactly 24 slots.

@@ -1,4 +1,4 @@
--- fruUI Edit Mode: hidden-target previews and exact visibility restoration.
+-- Dragonflight UI v2.5 Edit Mode: hidden-target previews and exact visibility restoration.
 if not table.getn then table.getn=function(a)return #a end end
 floor=math.floor
 local n=0

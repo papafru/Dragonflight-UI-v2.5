@@ -1,4 +1,4 @@
-name: fruUI Modern Unit Frames
+name: Dragonflight UI v2.5 Modern Unit Frames
 on:
   push:
     branches:

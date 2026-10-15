@@ -1,4 +1,4 @@
-name: fruUI Theme Foundation
+name: Dragonflight UI v2.5 Theme Foundation
 on:
   pull_request:
   push:

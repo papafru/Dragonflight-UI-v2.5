@@ -1,4 +1,4 @@
--- fruUI Milestone 3A: reversible Modern Dark action-button graphics.
+-- Dragonflight UI v2.5 Milestone 3A: reversible Modern Dark action-button graphics.
 -- No new DFRL:NewMod: the existing Modules settings grid is capacity-limited.
 -- This file only manages decorative regions; all action IDs, drag/drop, click,
 -- cooldown, macro and keybinding handling remains owned by the Bars module.

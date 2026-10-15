@@ -44,7 +44,7 @@ Dragonflight position.
 - Live PvP icons are managed separately. Their anchors and dimensions are
   captured; Modern positions them as compact badges just to the right of each
   rectangle. Their show/hide state is **not** changed, so actual PvP status
-  continues to be controlled by Blizzard/fruUI's PVPIcon module. Fantasy
+  continues to be controlled by Blizzard/Dragonflight UI v2.5's PVPIcon module. Fantasy
   restores the original anchor and dimensions exactly.
 - `TargetFrameNameBackground` (a legacy decorative region) is
   also suppressed without touching reaction-color logic.

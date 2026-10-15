@@ -1,4 +1,4 @@
--- fruUI Theme Foundation (schema 1).
+-- Dragonflight UI v2.5 Theme Foundation (schema 1).
 -- Loaded after core.lua and BEFORE ADDON_LOADED initialises profiles/modules.
 -- This is deliberately not a NewMod: the Modules options grid has 24 slots.
 -- Appearance is an overlay; legacy profile data remains untouched.

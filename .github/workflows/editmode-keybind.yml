@@ -1,4 +1,4 @@
-name: fruUI Edit Mode and Keybinding Safety
+name: Dragonflight UI v2.5 Edit Mode and Keybinding Safety
 on:
   pull_request:
   push:

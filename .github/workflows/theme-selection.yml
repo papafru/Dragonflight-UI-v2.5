@@ -1,4 +1,4 @@
-name: fruUI Theme Selection
+name: Dragonflight UI v2.5 Theme Selection
 on:
   pull_request:
   push:

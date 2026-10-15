@@ -29,6 +29,6 @@ Theme selection sends appearance callbacks for the existing whitelisted keys, sy
 
 On an existing character, temporarily preview the first-run window using:
 \`/run DFRL.theme.state.needsChoice = true; DFRL.ShowThemeWelcome()\`
-This deliberately changes a per-character test flag; **click Continue** to restore the completion state. For a truly fresh-character migration test, back up WTF and test on a character with no prior fruUI settings.
+This deliberately changes a per-character test flag; **click Continue** to restore the completion state. For a truly fresh-character migration test, back up WTF and test on a character with no prior Dragonflight UI v2.5 settings.
 
 Do not merge into stable \`main\` until the user's 1.18 client test succeeds.
