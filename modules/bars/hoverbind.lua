@@ -1,4 +1,4 @@
--- Dragonflight UI v2.5 - mouseover keybinding for the 1.12/1.18 client.
+-- Dragonflight UI: Reforged - mouseover keybinding for the 1.12/1.18 client.
 -- Uses the original Blizzard binding commands so action-bar paging, stances,
 -- pet commands and the existing DFRL hotkey renderer continue to work.
 -- Written in Lua 5.0-compatible syntax; no ClassicAPI/SuperWoW DLL required.
