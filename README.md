@@ -1,14 +1,32 @@
-# fruUI — Stable v1.3.6
+# Dragonflight UI v2.5
 
-**[Download the stable release](https://github.com/papafru/fruUI/releases)**
+**An enhanced continuation of Dragonflight UI: Reforged**, focused on improved controls, reliable customization, and a polished Classic-era interface. Built on the original Reforged project, with **more updates planned for the future**.
 
-Stable fruUI keeps the **original Dragonflight UI: Reforged 1.3.5 appearance**, while incorporating the latest **Edit Mode** and **mouseover keybinding** usability fixes.
+> **Stable status:** The current downloadable addon build is **v1.3.6**. “Dragonflight UI v2.5” is the project/repository name; it does not rename the in-game version or imply an unreleased build.
 
-**GitHub addon manager:** Add repository `papafru/fruUI`, select the latest GitHub release, and install the ZIP asset `DragonflightUI-Reforged-v1.3.6.zip`. That ZIP has one install-ready folder `DragonflightUI-Reforged` containing the `.toc` directly. Manual install: `Interface/AddOns/DragonflightUI-Reforged/`.
+## What's improved over Reforged
 
-**Development:** Experimental Modern Dark themes, cast bars and minimap changes live on the [testing branch](https://github.com/papafru/fruUI/tree/testing). The stable `main` branch does **not** contain aesthetic redesigns.
+- **Enhanced Edit Mode:** Move supported UI elements with readable drag-handle labels and improved position previews.
+- **Stable frame previews:** Target, Target of Target, buffs, temporary enchant icons, and quest-related frames can be repositioned without the Edit Mode flickering seen in earlier builds.
+- **Improved mouseover keybinding mode:** Assign bindings by hovering over action buttons, with explicit **Save Changes** and **Cancel** controls.
+- **Safer keybinding handling:** Escape clears a hovered action button's binding provisionally, or cancels unsaved changes when not hovering over a bindable button; left/right mouse clicks are protected.
+- **Reliable distribution:** Stable ZIP contains one correctly named `DragonflightUI-Reforged/` addon folder for manual or GitHub addon-manager installation.
+- **Automated validation:** Lua 5.1 syntax, keybinding/Edit Mode regressions, and stable addon packaging are checked in CI.
 
-The original authors and credits are preserved below.
+## Future updates
+
+Further enhancements are planned. Experimental work is preserved in the [testing branch](https://github.com/papafru/fruUI/tree/testing), including the optional **Modern Dark** visual theme, flat unit-frame and action-button designs, updated cast bars, a lean square minimap, and expanded action-button highlight options. **These experimental features are not part of the current stable release.** Development is currently paused while the existing work is retained for future updates.
+
+## Install the stable version
+
+**[Download the latest stable release](https://github.com/papafru/fruUI/releases/tag/v1.3.6)** — `DragonflightUI-Reforged-v1.3.6.zip`.
+
+For a GitHub addon manager, add `papafru/fruUI` (or its future renamed repository address), select the latest stable GitHub release, and install the release ZIP. For manual installation, the TOC must be at `Interface/AddOns/DragonflightUI-Reforged/DragonflightUI-Reforged.toc`.
+
+## Project origins and credits
+
+This project builds upon **Dragonflight UI: Reforged** by Stormhand and earlier work by Guzruul and other contributors. The original project's description and credits follow.
+
 
 ---
 
